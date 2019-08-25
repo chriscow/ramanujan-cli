@@ -1,12 +1,34 @@
 import math
 import itertools
 from mpmath import mpf as dec
+from enum import IntEnum
+
+class AlgorithmType(IntEnum):
+    ContinuedFraction=1
+
+
+def range_length(coeff_range, current=1):
+    for ar in coeff_range:
+        for r in ar:
+            current *= (r[1] - r[0])
+    
+    return current
+
 
 def coefficients(coeff_range):
     """
     Creates an iterator that goes through all possibilities of coeff_range.
     """
     return itertools.product(*[ itertools.product(*[ range(*r) for r in ra ]) for ra in coeff_range ])
+
+
+def iterate_coefficients(a_array, b_array):
+
+    # coefficients() returns an iterator that covers all coefficient possibilities
+    for a_coeff in coefficients(a_array):
+        for b_coeff in coefficients(b_array):    
+            yield a_coeff[0], b_coeff[0]
+
 
 
 def solve_polynomial(coeffs, x):
@@ -18,7 +40,31 @@ def solve_polynomial(coeffs, x):
 
         x      - a value to substitute
     """
-    return sum([coeffs[j] * x ** j for j in range(len(coeffs))])
+    return sum([ dec(coeffs[j]) * dec(x) ** j for j in range(len(coeffs))])
+
+
+def solve(a_coeff, b_coeff, poly_range, algo):
+    """
+    Simply iterates through all posibilities of coefficients and
+    runs the supplied algorithm with each value and yields the result.
+    """
+    
+    # for each coefficient combination, solve the polynomial for x 0 => depth
+    if isinstance(poly_range, dec):
+        x = poly_range
+        a_poly = solve_polynomial(a_coeff, x)
+        b_poly = solve_polynomial(b_coeff, x)
+    else:
+        a_poly = [solve_polynomial(a_coeff, x) for x in poly_range]
+        b_poly = [solve_polynomial(b_coeff, x) for x in poly_range]
+
+    return algo(a_poly, b_poly)
+        
+
+def rational_function(a, b):
+    """
+    """
+    return dec(a / b) if b != 0 else math.nan 
 
 
 def continued_fraction(a, b=None):
@@ -38,21 +84,30 @@ def continued_fraction(a, b=None):
 
         a[0] + b[0] / (a[1] + b[1] / (a[2] + b[2] / a[3] ...))
     """
+    res = 1
+
     if b is None:
         b = [1] * (len(a)-1)
-    if len(a) == len(b):
-        res = 1
-    elif len(a) == len(b) + 1:
+    elif len(a) == len(b):
+        # if the first element of b[] is zero, it wipes out everything else
+        if b[0] == 0:
+            b = b[1:]
+    
+    if len(a) == len(b) + 1:
         res = a[-1]
         a = a[:-1]
-    else:
-        raise ValueError(f'Expected len(a) == len(b) (or len(b)+1). a:{len(a)} b:{len(b)}')
 
+    if len(a) != len(b):
+        raise ValueError(f'Expected len(a) == len(b) a:{len(a)} b:{len(b)}')
 
     for a_val, b_val in zip(reversed(a), reversed(b)):
+
+        if 0 == res:
+            break
+            
         res = a_val + b_val / res
 
-    return res
+    return dec(res)
 
 
 
