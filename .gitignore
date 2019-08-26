@@ -1,2 +1,6 @@
 .venv
 .vscode
+.serverless
+node_modules
+*.bin
+*.rdb

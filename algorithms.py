@@ -66,6 +66,7 @@ def rational_function(a, b):
     """
     return dec(a / b) if b != 0 else math.nan 
 
+rational_function.type_id = 2
 
 def continued_fraction(a, b=None):
     """
@@ -109,7 +110,7 @@ def continued_fraction(a, b=None):
 
     return dec(res)
 
-
+continued_fraction.type_id = 1
 
 if __name__ == "__main__":
     #
