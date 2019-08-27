@@ -6,17 +6,19 @@ verify_ssl = true
 [dev-packages]
 rope = "*"
 moto = "*"
-v = {version = "*", editable = true}
-
-[packages]
 redis = "*"
 rq = "*"
-mpmath = "*"
-sympy = "*"
 msgpack-python = "*"
 click = "*"
 dill = "*"
 "boto3" = "*"
+sympy = "*"
+v = {version = "*", editable = true}
+
+[packages]
+mpmath = "*"
+python-dotenv = "*"
+redis = "*"
 
 [requires]
 python_version = "3.7"

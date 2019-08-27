@@ -30,6 +30,16 @@ stage: dev
 region: us-west-2
 
 # you can add statements to the Lambda function's IAM Role here
+iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "sqs:SendMessage"
+        - "sqs:GetQueueUrl"
+      Resource: "arn:aws:sqs:${self:provider.region}:148405772863:ramanujan-calculate"
+    - Effect: "Allow"
+      Action:
+        - "sqs:ListQueues"
+      Resource: "arn:aws:sqs:${self:provider.region}:148405772863:*"
 #  iamRoleStatements:
 #    - Effect: "Allow"
 #      Action:
@@ -50,24 +60,39 @@ region: us-west-2
 #    variable1: value1
 
 # you can add packaging information here
-package:
- include:
-   - vendor/**
+# package:
+#  include:
 #    - include-me-dir/**
 #  exclude:
 #    - exclude-me.py
 #    - exclude-me-dir/**
 
 functions:
+  generate:
+    handler: handler.generate
+    events:
+      - sqs:
+          arn: "arn:aws:sqs:us-west-2:148405772863:ramanujan-calculate"
+          batchSize: 1  # max 10 messages per invocation
+          Fn::GetAtt:
+            - ramanujan-calculate # name of the queue
+            - Arn
+
   calculate:
     handler: handler.calculate
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
     events:
-      - http:
-          path: algos/calculate
-          method: get
+      # - http:
+      #     path: algos/calculate
+      #     method: get
+      - sqs:
+          arn: "arn:aws:sqs:us-west-2:148405772863:ramanujan-calculate"
+          batchSize: 1  # max 10 messages per invocation
+          Fn::GetAtt:
+            - ramanujan-calculate # name of the queue
+            - Arn
 #      - websocket: $connect
 #      - s3: ${env:BUCKET}
 #      - schedule: rate(10 minutes)

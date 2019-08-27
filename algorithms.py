@@ -1,6 +1,5 @@
-import math
-import itertools
-from mpmath import mpf as dec
+import itertools, mpmath
+from mpmath import mpf
 from enum import IntEnum
 
 class AlgorithmType(IntEnum):
@@ -22,7 +21,7 @@ def coefficients(coeff_range):
     return itertools.product(*[ itertools.product(*[ range(*r) for r in ra ]) for ra in coeff_range ])
 
 
-def iterate_coefficients(a_array, b_array):
+def iterate_coeff_ranges(a_array, b_array):
 
     # coefficients() returns an iterator that covers all coefficient possibilities
     for a_coeff in coefficients(a_array):
@@ -40,7 +39,7 @@ def solve_polynomial(coeffs, x):
 
         x      - a value to substitute
     """
-    return sum([ dec(coeffs[j]) * dec(x) ** j for j in range(len(coeffs))])
+    return sum([ mpf(coeffs[j]) * mpf(x) ** j for j in range(len(coeffs))])
 
 
 def solve(a_coeff, b_coeff, poly_range, algo):
@@ -50,7 +49,7 @@ def solve(a_coeff, b_coeff, poly_range, algo):
     """
     
     # for each coefficient combination, solve the polynomial for x 0 => depth
-    if isinstance(poly_range, dec):
+    if isinstance(poly_range, mpf):
         x = poly_range
         a_poly = solve_polynomial(a_coeff, x)
         b_poly = solve_polynomial(b_coeff, x)
@@ -64,7 +63,7 @@ def solve(a_coeff, b_coeff, poly_range, algo):
 def rational_function(a, b):
     """
     """
-    return dec(a / b) if b != 0 else math.nan 
+    return mpf(a / b) if b != 0 else mpmath.nan 
 
 rational_function.type_id = 2
 
@@ -108,7 +107,7 @@ def continued_fraction(a, b=None):
             
         res = a_val + b_val / res
 
-    return dec(res)
+    return mpf(res)
 
 continued_fraction.type_id = 1
 
@@ -131,11 +130,10 @@ if __name__ == "__main__":
 
     # test that we can calculate e
     e = continued_fraction(range(3, 50), range(-1, -48, -1))
-    assert (math.e == e), f'Expected {e} == {math.e}'
+    assert (mpmath.e == e), f'Expected {e} == {mpmath.e}'
     
     # test that we can calculate phi
-    phi = (1 + math.sqrt(5)) / 2
     res = continued_fraction([1] * 50)
-    assert (phi == res), f'Expected {phi} == {res}'
+    assert (mpmath.phi == res), f'Expected {mpmath.phi} == {res}'
 
     print('All algorithms tests passed')

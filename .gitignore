@@ -1,6 +1,8 @@
+.env
 .venv
 .vscode
 .serverless
+__pycache__
 node_modules
 *.bin
 *.rdb

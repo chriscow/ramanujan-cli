@@ -22,11 +22,11 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         print()
 
 
-def printContFrac(result, a_coeff, b_coeff):
+def cont_frac_to_string(result, a_coeff, b_coeff):
 
     p = solve_polynomial
 
-    print("""
+    return """
                     {5}
             {1} + ------------
                         {6}
@@ -37,4 +37,20 @@ def printContFrac(result, a_coeff, b_coeff):
                         {4} + -----------   
                                 [...]""".format(result, 
             p(a_coeff, 0), p(a_coeff, 1), p(a_coeff, 2), p(a_coeff, 3),
-            p(b_coeff, 1), p(b_coeff, 2), p(b_coeff, 3), p(b_coeff, 4)))
+            p(b_coeff, 1), p(b_coeff, 2), p(b_coeff, 3), p(b_coeff, 4))
+
+def polynomial_to_string(coeff, x):
+
+    res = ['' for i in range(len(coeff))]
+
+    for order in range(len(coeff)):
+        res[order] = f'{coeff[order]}'
+        if order > 0:
+            if order == 1:
+                res[order] += f'({x})'
+            else:
+                res[order] += f'({x})^{order}'
+    
+    res.reverse()
+    return ' + '.join(res)
+    

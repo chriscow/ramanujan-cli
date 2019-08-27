@@ -1,9 +1,11 @@
 import datetime, time, multiprocessing
 
 import click        # command line tools
-from mpmath import mpf
 from redis import Redis
 from rq import Queue
+
+import mpmath
+from mpmath import mpf
 
 import algorithms
 import config
@@ -68,8 +70,8 @@ def quegen():
 
         start = datetime.datetime.now()
 
-        print(f'Queuing calculations...')
-        for a_coeff, b_coeff in algorithms.iterate_coefficients(a_range, b_range):
+        print('Queuing calculations...')
+        for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
 
             a.append(a_coeff)
             b.append(b_coeff)
@@ -153,7 +155,7 @@ def generate(silent):
 
     current = 1
 
-    for a_coeff, b_coeff in algorithms.iterate_coefficients(a_range, b_range):
+    for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
 
         result = algorithms.solve(a_coeff, b_coeff, poly_range, rhs_algo)
 
@@ -174,6 +176,8 @@ def generate(silent):
     if not silent:
         print(f'Hashtable generated in {stop - start}')
 
+
+
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
 def search(silent):
@@ -192,7 +196,12 @@ def search(silent):
         if not isinstance(const, mpf):
             raise TypeError("Constant value must be mpf(const) type")
 
-        for result, a_coeff, b_coeff in algorithms.solve(a_range, b_range, const, lhs_algo):
+        for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
+
+            result = abs(algorithms.solve(a_coeff, b_coeff, const, lhs_algo))
+
+            if result in config.lhs.skip:
+                continue
 
             if not silent:
                 utils.printProgressBar(current, total_work)
@@ -203,7 +212,12 @@ def search(silent):
                 val = ht.get(result)
                 for algo_type, a, b in val:
                     if algo_type == AlgorithmType.ContinuedFraction:
-                        utils.printContFrac(result, a, b)
+                        print('RHS:')
+                        print(utils.polynomial_to_string(a_coeff, const))
+                        print('-' * 50)
+                        print(utils.polynomial_to_string(b_coeff, const))
+
+                        print(utils.cont_frac_to_string(result, a, b))
                     else:
                         print(result, val)
 

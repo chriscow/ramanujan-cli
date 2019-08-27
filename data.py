@@ -1,10 +1,12 @@
-import os, datetime
+import os, datetime, math
 import click, msgpack
 import dill as pickle
 import config
 import utils
 from algorithms import range_length, coefficients, solve_polynomial, AlgorithmType
-from mpmath import mpf as dec   # replacement for Decimal
+
+import mpmath
+from mpmath import mpf   # replacement for Decimal
 
 
 def load_hashtable(filename, silent=False):
@@ -37,25 +39,6 @@ def save_hashtable(ht, filename, silent=False):
         pickle.dump(ht, output_file, protocol=pickle.HIGHEST_PROTOCOL)
     
 
-def msgpack_encode(obj):
-
-    print(type(obj))
-
-    if isinstance(obj, DecimalHashTable):
-        return {'__decimalhashtable__':True, 'state':(obj.accuracy, obj.accuracy_history, dict(obj))}
-
-    return obj
-
-
-def msgpack_decode(obj):
-    if b'__decimalhashtable__' in obj:
-        accuracy, history, data = obj['state']
-        ht = DecimalHashTable(accuracy)
-        ht.accuracy_history = history
-        ht.update(data)
-        return ht
-    
-    return obj
 
 """
 Implements a hashtable for Decimal values. This is barely an extension of the 
@@ -86,9 +69,9 @@ class DecimalHashTable(dict):
         """Converts the key to a string of the appropriate length, to be used as a key."""
 
         # The key needs to either be a decimal (mpf) data type or a string.
-        if not isinstance(key, dec) and not isinstance(key, str):
+        if not isinstance(key, mpf) and not isinstance(key, str):
             # raise TypeError('Only Decimal is supported')
-            raise TypeError('Only mpmath.mpf is supported')
+            raise TypeError('Only mpmpmath.mpf is supported')
 
         # Convert the key to a string, if it isn't already
         if isinstance(key, str):
@@ -102,7 +85,7 @@ class DecimalHashTable(dict):
         # We are going to create an array of keys of varying decimal places of
         # accuracy based on 'accuracy_history'.  The original key passed in is
         # truncated to the number of digits in 'accuracy_history' and then padded
-        # with zeros.
+        # with zeros if necessary.
         #
         # The resulting 'old_keys' array is in chronological order of the
         # accuracy history.
@@ -114,6 +97,10 @@ class DecimalHashTable(dict):
         return old_keys, cur_key
 
     def get(self, k, d=None):
+
+        if mpmath.isnan(k):
+            return d
+
         # Normalize the key
         old_keys, cur_key = self._manipulate_key(k)
 
