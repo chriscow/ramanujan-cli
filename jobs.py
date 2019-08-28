@@ -1,7 +1,10 @@
 import algorithms
 import config
+import redis
 
 from algorithms import AlgorithmType
+
+db = redis.Redis()
 
 def add(a, b):
     return a + b

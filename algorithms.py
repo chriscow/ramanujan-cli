@@ -1,9 +1,5 @@
 import itertools, mpmath
 from mpmath import mpf
-from enum import IntEnum
-
-class AlgorithmType(IntEnum):
-    ContinuedFraction=1
 
 
 def range_length(coeff_range, current=1):

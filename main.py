@@ -44,10 +44,10 @@ def save_result(result, algo_data):
 @click.command()
 def quegen():
     '''
-    
+    This command takes the configured coefficient ranges and divides them up
+    for separate processes to work on the smaller chunks.  Each chunk is saved
+    in a work queue and the workers pull from that queue until its empty.
     '''
-
-    redis_server = Popen(['redis-server'], stdout=DEVNULL, stderr=DEVNULL)
 
     workers = []
     cores = multiprocessing.cpu_count()
@@ -64,27 +64,32 @@ def quegen():
         #total_work = algorithms.range_length(b_range, algorithms.range_length(a_range))
 
         count = 1
-        a = []
-        b = []
-        work = set()  # set of all work items
+        a = []  # holds a subset of the coefficient a-range
+        b = []  # holds a subset of the coefficient b-range
+        work = set()  # set of all jobs queued up to know when we are done
 
-        start = datetime.datetime.now()
+        start = datetime.datetime.now()  # keep track of what time we started
 
         print('Queuing calculations...')
+
+        # Loop through all coefficient possibilities
         for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
 
             a.append(a_coeff)
             b.append(b_coeff)
             count += 1
 
+            # When the list of a's and b's are up to batch_size, queue a job
             if count % batch_size == 0:
+                # We are queuing arrays of coefficients to work on
                 job = q.enqueue(jobs.generate, a, b, poly_range)
-                work.add(job)
+                work.add(job)   # hold onto the job info
                 a = []
                 b = []
 
+        # If there are any left over coefficients whos array was not evenly
+        # divisible by the batch_size, queue them up also
         if len(a):
-            # results = jobs.generate(a, b, poly_range)
             job = q.enqueue(jobs.generate, a, b, poly_range)
             work.add(job) 
 
@@ -92,12 +97,12 @@ def quegen():
         running = True
 
         print('Waiting for queued work...')
-        while len(work):
+        while len(work):  # while there is still work to do ...
 
             utils.printProgressBar(total_work - len(work), total_work)
 
-            completed_jobs = set()
-            failed_jobs = set()
+            completed_jobs = set()  # hold completed jobs done in this loop pass
+            failed_jobs = set()     # same for failed jobs
 
             for job in work:
                 status = job.get_status()
