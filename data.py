@@ -1,77 +1,75 @@
-import os, datetime, math
-import click, msgpack
-import dill as pickle
-import config
-import utils
-from algorithms import range_length, coefficients, solve_polynomial, AlgorithmType
-
+import os
+import redis
+import dotenv
 import mpmath
 from mpmath import mpf   # replacement for Decimal
 
 
-def load_hashtable(filename, silent=False):
-    
-    ht = None
-    
-    if os.path.isfile(config.hashtable_filename):
-    
-        start = datetime.datetime.now()
-
-        if not silent:
-            print('Loading hashtable ...', end=None, flush=True)
-        
-        with open(filename, 'rb') as input_file:
-            ht = pickle.load(input_file)
-
-        end = datetime.datetime.now()
-        if not silent:
-            print(f'{end - start}ms')
-
-    else:
-        ht = DecimalHashTable(8)
-
-    return ht
-
-
-def save_hashtable(ht, filename, silent=False):
-
-    with open(filename, 'wb') as output_file:
-        pickle.dump(ht, output_file, protocol=pickle.HIGHEST_PROTOCOL)
-    
-
-
-"""
+'''
 Implements a hashtable for Decimal values. This is barely an extension of the 
 dict type to support Decimal with a defined decimal accuracy as keys.
 
 Some more features are supplied, such as dynamic accuracy (the stored keys' 
 accuracy may be redefined), support for serialization by dill/pickle and 
 (perhaps) more.
-"""
+'''
 # TODO: might be possible to enhance efficiency by using dec.quantize to round to the required accuracy
 # TODO: IMPORTANT! We're exposed to num. errs. A "rounding" func is needed. Here and in "compare_dec_with_accuracy".
-class DecimalHashTable(dict):
+class DecimalHashTable():
     """Hashtable with decimal keys. Supports an arbitrary and varying precision for the keys."""
+    
+    def __init__(self, accuracy=8, db=0):
 
-    def __init__(self, accuracy):
-        """accuracy - the required keys accuracy (how many digits should be compared)."""
-        # +1 for the decimal point
-        self.accuracy = accuracy + 1
-        self.accuracy_history = []
+        self.redis = redis.Redis(host=os.getenv('REDIS_HOSTS'),  port=os.getenv('REDIS_PORT'), db=db)
+
+        if self.accuracy is None:
+            self.set_accuracy(accuracy)
 
 
-    def update_accuracy(self, accuracy):
-        """Update the used keys accuracy for new saved values."""
-        self.accuracy_history.append(self.accuracy)
-        self.accuracy = accuracy + 1
+    def get_accuracy(self):
+        accuracy = self.redis.get('accuracy')
+        return accuracy
+
+
+    def set_accuracy(self, value):
+        current = self.get_accuracy()
+
+        self.redis.set('accuracy', value)
+
+        # If the accuracy was not previously set, or is the same value then 
+        # there is no history to update.
+        if current is None or current == value:
+            return
+        
+        if current not in self.get_history():
+            self.redis.lpush('accuracy_history', current)
+
+
+    accuracy = property(get_accuracy, set_accuracy)
+
+
+    def get_history(self):
+        return self.redis.lrange('accuracy_history', 0, -1)
+
 
     def _manipulate_key(self, key):
-        """Converts the key to a string of the appropriate length, to be used as a key."""
+        '''
+        Converts an mpf() numeric value to a string of length indicated by the
+        current accuracy value as well as all previous accuracy values.
+
+        Arguments:
+            key -- mpf() numeric value
+
+        Returns:
+            old_keys, current_key pair
+                old_keys are all previous hashes of the key value
+                current_key is the current hash value of the key
+        '''
 
         # The key needs to either be a decimal (mpf) data type or a string.
         if not isinstance(key, mpf) and not isinstance(key, str):
             # raise TypeError('Only Decimal is supported')
-            raise TypeError('Only mpmpmath.mpf is supported')
+            raise TypeError('Only mpmath.mpf is supported')
 
         # Convert the key to a string, if it isn't already
         if isinstance(key, str):
@@ -89,121 +87,148 @@ class DecimalHashTable(dict):
         #
         # The resulting 'old_keys' array is in chronological order of the
         # accuracy history.
-        old_keys = [ key_str[:dec_point_ind + i + 1] + '0' * (i - (len(key_str) - dec_point_ind))
-                     for i in self.accuracy_history ]
+        #
+        # Numeric values are stored in redis as binary strings.  We need to convert
+        # them back to ints
+        acc = int(self.get_accuracy())
+        history = [int(i) for i in self.get_history()]
 
-        cur_key = key_str[:dec_point_ind + self.accuracy + 1] + '0' * (self.accuracy - (len(key_str) - dec_point_ind))
+        old_keys = [ key_str[:dec_point_ind + i + 1] + '0' * (i - (len(key_str) - dec_point_ind))
+                     for i in history ]
+
+        cur_key = key_str[:dec_point_ind + acc + 1] + '0' * (acc - (len(key_str) - dec_point_ind))
 
         return old_keys, cur_key
 
-    def get(self, k, d=None):
+    def keys(self, pattern='*'):
+        return self.redis.keys(pattern)
 
-        if mpmath.isnan(k):
-            return d
+    def get(self, key, default=None):
+        '''
+        Checks the cache for a key and returns the contents if it exists
+        otherwise it returns the default value
+
+        Arguments:
+            key -- key to find in Redis (will be normalized)
+            default -- value returned if the key doesn't exist
+
+        Returns:
+            List of items stored with the cache key otherwise the default value
+        '''
+
+        if mpmath.isnan(key):
+            return default
 
         # Normalize the key
-        old_keys, cur_key = self._manipulate_key(k)
+        old_keys, cur_key = self._manipulate_key(key)
 
         # Dig through the old keys to see if we have a match
         for k in old_keys:
-            if super().__contains__(k):
-                return super().__getitem__(k)
+            val = self.redis.lrange(k, 0, -1)
+            if val:
+                return val
         
         # And now the current key
-        if super().__contains__(cur_key):
-            return super().__getitem__(cur_key)
+        val = self.redis.lrange(cur_key, 0, -1)
+        if val:
+            return val
         
         # If we made it here, there was no match so return the default value
         return d
 
-    def setdefault(self, k, d=None):
-        """
-        Returns the value from the dictionary. If not found, sets the value in 
-        the dictionary for this key to the default value.
-        """
+
+    def set(self, key, value):
+        '''
+        Finds the value for the corresponding key in the cache. If the value exists,
+        it will be a list of values. If the passed-in value does not exist in the
+        list, it will be added.
+
+        Arguments:
+            key -- key that will be normalized and searched for in the cache
+            value -- value to be added to the key store if it doesn't already exist
+
+        Returns:
+            Returns the value passed in
+        '''
+
+        if mpmath.isnan(key):
+            return value
 
         # Normalize the key
-        old_keys, cur_key = self._manipulate_key(k)
-
-        # Dig through the old keys to see if we have a match
-        for k in old_keys:
-            if super().__contains__(k):
-                return super().__getitem__(k)
-
-        # And now the current key
-        if super().__contains__(cur_key):
-            return super().__getitem__(cur_key)
-
-        # If we made it here, set the value in the dictionary to the default value
-        super().__setitem__(cur_key, d)
-
-        return d
-
-    def __setitem__(self, key, value):
         old_keys, cur_key = self._manipulate_key(key)
-        for k in old_keys:
-            if super().__contains__(k):
-                super().__delitem__(k)
-        return super().__setitem__(cur_key, value)
 
-    def __getitem__(self, item):
-        old_keys, cur_key = self._manipulate_key(item)
-        # The order in which we run here over the keys doesn't matter, since we disallow multiple identical keys in the
-        # same length, there will be at most one results.
-        for k in old_keys:
-            if super().__contains__(k):
-                return super().__getitem__(k)
-        return super().__getitem__(cur_key)
+        value = bytes(value.__repr__(), 'utf-8')
 
-    def __delitem__(self, key):
-        old_keys, cur_key = self._manipulate_key(key)
-        for k in old_keys:
-            if super().__contains__(k):
-                super().__delitem__(k)
-        if super().__contains__(cur_key):
-            super().__delitem__(cur_key)
+        # add the value to the current key if it's not there already
+        values = self.redis.lrange(cur_key, 0, -1)  # get all list values
+        if value not in values:
+            self.redis.lpush(cur_key, value)
 
-    def __contains__(self, item):
-        old_keys, cur_key = self._manipulate_key(item)
-        for k in old_keys:
-            if super().__contains__(k):
-                return True
-        return super().__contains__(cur_key)
+        # add the value to all previous keys if it's not in any of them either
+        for key in old_keys:
+            values = self.redis.lrange(key, 0, -1)
+            if value not in values:
+                self.redis.lpush(cur_key, value)
 
-    def __getstate__(self):
-        """Used by pickle for serializing."""
-        return (self.accuracy, self.accuracy_history, dict(self))
+        return value
 
-    def __setstate__(self, state):
-        """Used by pickle for de-serializing."""
-        self.accuracy, self.accuracy_history, data = state
-        self.update(data)
 
-    def __reduce__(self):
-        """Used by pickle for serializing (I think. Long time, no documentation)."""
-        return (DecimalHashTable, (self.accuracy,), self.__getstate__())
+if __name__ == '__main__':
 
-    def append_dict(self, appended_dict):
-        """Enables appending another dict to this one. May be used to distribute run and join results."""
+    from dotenv import load_dotenv
+    load_dotenv()
 
-        if self.accuracy != appended_dict.accuracy:
-            raise TypeError('Two dictionaries are of non-fitting accuracies')
+    ht = DecimalHashTable(db=15)
+    ht.redis.flushall()
 
-        self.accuracy_history += [ a for a in appended_dict.accuracy_history if a not in self.accuracy_history ]
-        for k in super(DecimalHashTable, appended_dict).keys():
-            if k in super().keys():
-                try:
-                    orig_items = super().__getitem__(k)
-                    appended_items = super(DecimalHashTable, appended_dict).__getitem__(k)
-                    if not isinstance(orig_items, list):
-                        orig_items = [orig_items]
-                    if not isinstance(appended_items, list):
-                        appended_items = [appended_items]
-                    super().__setitem__(k, orig_items + appended_items)
-                except TypeError:
-                    type_orig = str(type(super().__getitem__(k)))
-                    type_appended = str(type(super(DecimalHashTable, appended_dict).__getitem__(k)))
-                    print('types are: original dict: %s, appended dict: %s' % (type_orig, type_appended))
-                    raise
-            else:
-                super().__setitem__(k, super(DecimalHashTable, appended_dict).__getitem__(k))
+    value = (1, (2,3,4), (5,6,7))
+    value2 = (2, (3,4,5), (6,7,8))
+
+    key = mpf(111)
+    ht.accuracy = 1
+    ht.set(key, value)
+    keys = ht.keys()
+    assert(keys[0] == b'111.0')
+    test = ht.get(key)
+    assert(test[0] == b'(1, (2, 3, 4), (5, 6, 7))')
+
+    ht.accuracy = 2
+
+    # make sure we can still get value if accuracy changes
+    test = ht.get(key)
+    assert(test[0] == b'(1, (2, 3, 4), (5, 6, 7))')
+
+    ht.accuracy = 3
+    test = ht.get(key)
+    assert(test[0] == b'(1, (2, 3, 4), (5, 6, 7))')
+
+    history = ht.get_history()
+    assert(len(history) == 2), 'History should be 2 at this point'
+
+    # make sure history updates
+    ht.accuracy = 2
+    history = ht.get_history()
+    assert(len(history) == 3), f'History should be 3 at this point, not {len(history)}'
+
+    # set a new value on the same key but accuracy changed.
+    # should be reflected in current key plus all historical keys
+    test = ht.set(key, value2)
+    assert(test == b'(2, (3, 4, 5), (6, 7, 8))')
+
+    values = ht.get(key) # current key
+    assert(b'(2, (3, 4, 5), (6, 7, 8))' in values)
+    values = ht.get('111.0') # old key
+    assert(b'(2, (3, 4, 5), (6, 7, 8))' in values)
+    
+    
+    keys = ht.keys()
+    assert(b'111.00' in keys)
+    assert(b'111.0' in keys)
+
+    assert(ht.accuracy == b'2')  
+
+    try:
+        ht.get(1234)  # invalid key
+    except TypeError:
+        pass # expected
+
