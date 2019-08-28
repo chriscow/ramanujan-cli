@@ -1,16 +1,17 @@
+import os
+import dotenv
+
 import algorithms
 import config
-import redis
+import data
 
 from subprocess import Popen, DEVNULL
-
-from algorithms import AlgorithmType
 
 def add(a, b):
     return a + b
 
 
-def spawn():
+def spawn_workers():
     '''
     Spawns worker subprocesses based on CPU count.
 
@@ -24,11 +25,13 @@ def spawn():
 
     return workers
 
-def generate(a_coeffs, b_coeffs, poly_range):
+
+def calculate(a_coeffs, b_coeffs, poly_range):
+    dotenv.load_dotenv()
+    
+    db = data.DecimalHashTable()
 
     rhs_algo   = config.rhs.algorithm
-
-    results = []
 
     coeff_list = zip(a_coeffs, b_coeffs)
         
@@ -37,9 +40,6 @@ def generate(a_coeffs, b_coeffs, poly_range):
     
         # store the fraction result in the hashtable along with the
         # coefficients that generated it
-        algo_data = (AlgorithmType.ContinuedFraction, a_coeff, b_coeff)
+        algo_data = (rhs_algo.type_id, a_coeff, b_coeff)
 
-        results.append( (result, algo_data) )
-        # print(result, algo_data)
-    
-    return results
+        db.set(result, algo_data)

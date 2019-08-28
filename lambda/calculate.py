@@ -115,5 +115,5 @@ def manipulate_key(key, accuracy=8):
         
         # store the fraction result in the hashtable along with the
         # coefficients that generated it
-        algo_data = (AlgorithmType.ContinuedFraction, a_coeff, b_coeff)
+        algo_data = (rhs_algo.type_id, a_coeff, b_coeff)
         save_result(result, algo_data)

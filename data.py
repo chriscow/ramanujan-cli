@@ -18,23 +18,27 @@ accuracy may be redefined), support for serialization by dill/pickle and
 class DecimalHashTable():
     """Hashtable with decimal keys. Supports an arbitrary and varying precision for the keys."""
     
-    def __init__(self, accuracy=8, db=0):
+    def __init__(self, accuracy=8):
 
-        self.redis = redis.Redis(host=os.getenv('REDIS_HOSTS'),  port=os.getenv('REDIS_PORT'), db=db)
+        CONFIG_DB = int(os.getenv('CONFIG_DB'))
+        DATA_DB   = int(os.getenv('DATA_DB'))
+        
+        self.config = redis.Redis(host=os.getenv('REDIS_HOSTS'),  port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
+        self.redis = redis.Redis(host=os.getenv('REDIS_HOSTS'),  port=os.getenv('REDIS_PORT'), db=DATA_DB)
 
         if self.accuracy is None:
             self.set_accuracy(accuracy)
 
 
     def get_accuracy(self):
-        accuracy = self.redis.get('accuracy')
+        accuracy = self.config.get('accuracy')
         return accuracy
 
 
     def set_accuracy(self, value):
         current = self.get_accuracy()
 
-        self.redis.set('accuracy', value)
+        self.config.set('accuracy', value)
 
         # If the accuracy was not previously set, or is the same value then 
         # there is no history to update.
@@ -42,14 +46,14 @@ class DecimalHashTable():
             return
         
         if current not in self.get_history():
-            self.redis.lpush('accuracy_history', current)
+            self.config.lpush('accuracy_history', current)
 
 
     accuracy = property(get_accuracy, set_accuracy)
 
 
     def get_history(self):
-        return self.redis.lrange('accuracy_history', 0, -1)
+        return self.config.lrange('accuracy_history', 0, -1)
 
 
     def _manipulate_key(self, key):
@@ -178,7 +182,7 @@ if __name__ == '__main__':
     from dotenv import load_dotenv
     load_dotenv()
 
-    ht = DecimalHashTable(db=15)
+    ht = DecimalHashTable()
     ht.redis.flushall()
 
     value = (1, (2,3,4), (5,6,7))

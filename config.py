@@ -42,8 +42,8 @@ rhs.polynomial_range = range(0, 201)
 #
 #                    C   +  Bx   + Ax^2
 #
-# rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
-# rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
+rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
+rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
 
 # rhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
 # rhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
@@ -57,5 +57,5 @@ rhs.polynomial_range = range(0, 201)
 # rhs.b_range = [[ [1,2], [0,1], [0,1] ]]
 
 # just enough range to generate BOTH phi and e
-rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
-rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
+# rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
+# rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]

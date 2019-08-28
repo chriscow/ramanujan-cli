@@ -22,6 +22,7 @@ pynsq = "*"
 click = "*"
 rq = "*"
 python-dotenv = "*"
+tornado = "*"
 
 [requires]
 python_version = "3.7"
