@@ -2,12 +2,27 @@ import algorithms
 import config
 import redis
 
-from algorithms import AlgorithmType
+from subprocess import Popen, DEVNULL
 
-db = redis.Redis()
+from algorithms import AlgorithmType
 
 def add(a, b):
     return a + b
+
+
+def spawn():
+    '''
+    Spawns worker subprocesses based on CPU count.
+
+    Returns:
+        Array of process objects
+    '''
+    workers = []
+    cores = multiprocessing.cpu_count()
+    for core in range(cores):
+        workers.append(Popen(['rq', 'worker'], stdout=DEVNULL, stderr=DEVNULL))
+
+    return workers
 
 def generate(a_coeffs, b_coeffs, poly_range):
 

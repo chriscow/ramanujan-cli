@@ -17,8 +17,11 @@ v = {version = "*", editable = true}
 
 [packages]
 mpmath = "*"
-python-dotenv = "*"
 redis = "*"
+pynsq = "*"
+click = "*"
+rq = "*"
+python-dotenv = "*"
 
 [requires]
 python_version = "3.7"

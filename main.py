@@ -1,43 +1,9 @@
-import datetime, time, multiprocessing
-
 import click        # command line tools
-from redis import Redis
-from rq import Queue
-
-import mpmath
-from mpmath import mpf
-
-import algorithms
-import config
-import data
-import jobs
-import utils
-
-from subprocess import Popen, DEVNULL
-from algorithms import AlgorithmType
 
 @click.group()
 def cli():
     pass
 
-
-# Tell RQ what Redis connection to use
-redis_conn = Redis()
-q = Queue(connection=redis_conn)  # no args implies the default queue
-
-
-ht = data.load_hashtable(config.hashtable_filename)
-
-
-def save_result(result, algo_data):
-    hits = ht.get(result)
-    if hits and algo_data in hits:
-        return # result already in the hashtable
-    
-    if hits is None:
-        hits = ht.setdefault(abs(result), [])
-
-    hits.append( algo_data )
 
 
 
