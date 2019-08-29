@@ -5,6 +5,8 @@ import algorithms
 import config
 import data
 
+import multiprocessing
+from multiprocessing import Process
 from subprocess import Popen, DEVNULL
 
 def add(a, b):
@@ -26,8 +28,12 @@ def spawn_workers():
     return workers
 
 
+from celery import Celery
+app = Celery('jobs', backend='redis://localhost:6379/2', broker='redis://localhost:6379/2')
+dotenv.load_dotenv()
+
+@app.task
 def calculate(a_coeffs, b_coeffs, poly_range):
-    dotenv.load_dotenv()
     
     db = data.DecimalHashTable()
 

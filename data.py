@@ -22,7 +22,7 @@ class DecimalHashTable():
 
         CONFIG_DB = int(os.getenv('CONFIG_DB'))
         DATA_DB   = int(os.getenv('DATA_DB'))
-        
+
         self.config = redis.Redis(host=os.getenv('REDIS_HOSTS'),  port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
         self.redis = redis.Redis(host=os.getenv('REDIS_HOSTS'),  port=os.getenv('REDIS_PORT'), db=DATA_DB)
 
@@ -79,7 +79,7 @@ class DecimalHashTable():
         if isinstance(key, str):
             key_str = key
         else:
-            key_str = str(key)
+            key_str = str(mpmath.abs(key))
 
         # Get the index of the decimal point in the string 
         dec_point_ind = key_str.find('.') + 1 if '.' in key_str else 0
@@ -172,7 +172,7 @@ class DecimalHashTable():
         for key in old_keys:
             values = self.redis.lrange(key, 0, -1)
             if value not in values:
-                self.redis.lpush(cur_key, value)
+                self.redis.lpush(key, value)
 
         return value
 

@@ -37,11 +37,14 @@ rhs = Config()
 rhs.algorithm = algorithms.continued_fraction
 
 # range(i, j) polynomial f(x) goes from i to j - 1
-rhs.polynomial_range = range(0, 201)
+rhs.polynomial_range = (0, 201)
 
 #
 #                    C   +  Bx   + Ax^2
 #
+# rhs.a_range = [[ [-2,2], [-2,2], [-2,2] ]]
+# rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
+
 rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
 rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
 

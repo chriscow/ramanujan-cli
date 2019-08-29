@@ -6,7 +6,6 @@ verify_ssl = true
 [dev-packages]
 rope = "*"
 moto = "*"
-redis = "*"
 rq = "*"
 msgpack-python = "*"
 click = "*"
@@ -17,12 +16,13 @@ v = {version = "*", editable = true}
 
 [packages]
 mpmath = "*"
-redis = "*"
 pynsq = "*"
 click = "*"
 rq = "*"
 python-dotenv = "*"
 tornado = "*"
+redis = "*"
+celery = "*"
 
 [requires]
 python_version = "3.7"
