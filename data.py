@@ -119,9 +119,12 @@ class DecimalHashTable():
         Returns:
             List of items stored with the cache key otherwise the default value
         '''
+        if isinstance(key, mpf):
+            if mpmath.isnan(key):
+                return default
 
-        if mpmath.isnan(key):
-            return default
+            if mpmath.isinf(key):
+                return default
 
         # Normalize the key
         old_keys, cur_key = self._manipulate_key(key)
@@ -155,8 +158,12 @@ class DecimalHashTable():
             Returns the value passed in
         '''
 
-        if mpmath.isnan(key):
-            return value
+        if isinstance(key, mpf):
+            if mpmath.isnan(key):
+                return value
+
+            if mpmath.isinf(key):
+                return value
 
         # Normalize the key
         old_keys, cur_key = self._manipulate_key(key)

@@ -29,9 +29,8 @@ def generate():
 
     Those workers post their results directly to the hashtable.
     '''
-    WORK_QUEUE_DB = os.getenv('WORK_QUEUE_DB')
-    db = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=WORK_QUEUE_DB)
-    q = rq.Queue(connection=db)
+    CONFIG_DB = os.getenv('CONFIG_DB')
+    db = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
 
     a_range    = config.rhs.a_range
     b_range    = config.rhs.b_range

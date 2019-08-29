@@ -1,9 +1,13 @@
 import os
+import inspect
 import dotenv
 
 import algorithms
 import config
 import data
+import postproc
+
+import mpmath
 
 import multiprocessing
 from multiprocessing import Process
@@ -42,10 +46,32 @@ def calculate(a_coeffs, b_coeffs, poly_range):
     coeff_list = zip(a_coeffs, b_coeffs)
         
     for a_coeff, b_coeff in coeff_list:
-        result = algorithms.solve(a_coeff, b_coeff, poly_range, rhs_algo)
+        value = algorithms.solve(a_coeff, b_coeff, poly_range, rhs_algo)
     
-        # store the fraction result in the hashtable along with the
-        # coefficients that generated it
-        algo_data = (rhs_algo.type_id, a_coeff, b_coeff)
+        # get all the functions in the postproc module
+        funcs = [value for name,value in inspect.getmembers(postproc) if inspect.isfunction(value)]
 
-        db.set(result, algo_data)
+        for fn in funcs:
+            
+            # run the algo value through the postproc function
+            result = fn(value)
+
+            if result in config.rhs.black_list or mpmath.isnan(result) or mpmath.isinf(result):
+                continue
+
+            # store the fraction result in the hashtable along with the
+            # coefficients that generated it
+            algo_data = (rhs_algo.type_id, fn.type_id, a_coeff, b_coeff)
+            db.set(result, algo_data)
+
+            # also store just the fractional part of the result
+            result = result - int(result)
+            db.set(result, algo_data)
+
+if __name__ == '__main__':
+
+    #zero
+    calculate([(0,0,0)], [(0,0,0)], range(0,200))
+
+    # phi
+    calculate([(1,0,0)], [(1,0,0)], range(0,200))

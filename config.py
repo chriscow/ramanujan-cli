@@ -39,6 +39,10 @@ rhs.algorithm = algorithms.continued_fraction
 # range(i, j) polynomial f(x) goes from i to j - 1
 rhs.polynomial_range = (0, 201)
 
+# If the algorithm (or postproc functions) results in any of these values, 
+# don't store it
+rhs.black_list = (mpf(0), mpf(1))
+
 #
 #                    C   +  Bx   + Ax^2
 #
