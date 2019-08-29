@@ -79,7 +79,7 @@ class DecimalHashTable():
         if isinstance(key, str):
             key_str = key
         else:
-            key_str = str(mpmath.abs(key))
+            key_str = str(mpmath.fabs(key))
 
         # Get the index of the decimal point in the string 
         dec_point_ind = key_str.find('.') + 1 if '.' in key_str else 0
