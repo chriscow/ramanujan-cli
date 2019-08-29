@@ -33,16 +33,20 @@ def spawn_workers():
 
 
 from celery import Celery
-dotenv.load_dotenv()
-REDIS_CELERY_BROKER = os.getenv('REDIS_CELERY_BROKER')
-REDIS_CELERY_BACKEND = os.getenv('REDIS_CELERY_BACKEND')
-app = Celery('jobs', backend=REDIS_CELERY_BACKEND, broker=REDIS_CELERY_BROKER)
+app = Celery()
+app.config_from_object('celeryconfig')
+
 dotenv.load_dotenv()
 
 @app.task
-def calculate(algo_name, a_coeffs, b_coeffs, poly_range, black_list):
+def query(algo_name, a_coeffs, b_coeffs, poly_range, black_list):
     
-    db = data.DecimalHashTable()
+    pass
+
+@app.task
+def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
+    
+    db = data.DecimalHashTable(db=db, accuracy=accuracy)
 
     algo = getattr(algorithms, algo_name)
 
@@ -52,10 +56,12 @@ def calculate(algo_name, a_coeffs, b_coeffs, poly_range, black_list):
         value = algorithms.solve(a_coeff, b_coeff, poly_range, algo)
     
         # get all the functions in the postproc module
-        funcs = [value for name,value in inspect.getmembers(postproc) if inspect.isfunction(value)]
+        funcs = [fn for name,fn in inspect.getmembers(postproc) if inspect.isfunction(fn)]
 
         for fn in funcs:
             
+            print(f'a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
+
             # run the algo value through the postproc function
             result = fn(value)
 
@@ -72,16 +78,24 @@ def calculate(algo_name, a_coeffs, b_coeffs, poly_range, black_list):
             db.set(result, algo_data)
 
             # also store just the fractional part of the result
-            result = result - int(result)
+            result = mpmath.frac(result)
+            if black_list and result in black_list or mpmath.isnan(result) or mpmath.isinf(result):
+                continue
+                
             db.set(result, algo_data)
 
 if __name__ == '__main__':
 
+    db = 15
+    precision = 8
+    black_list = []
+
+
     #zero
-    calculate([(0,0,0)], [(0,0,0)], range(0,200))
+    store(db, precision, 'continued_fraction', [(0,0,0)], [(0,0,0)], range(0,200), black_list)
 
     # phi
-    calculate([(1,0,0)], [(1,0,0)], range(0,200))
+    store(db, precision, 'continued_fraction',[(1,0,0)], [(1,0,0)], range(0,200), black_list)
 
     a = []
     b = []
@@ -91,4 +105,8 @@ if __name__ == '__main__':
         a.append(a_coeff)
         b.append(b_coeff)
 
-    calculate(a, b, range(0,200))
+    store(db, precision, 'continued_fraction', a, b, range(0,200), black_list)
+
+
+
+    store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list)

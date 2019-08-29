@@ -18,13 +18,12 @@ accuracy may be redefined), support for serialization by dill/pickle and
 class DecimalHashTable():
     """Hashtable with decimal keys. Supports an arbitrary and varying precision for the keys."""
     
-    def __init__(self, accuracy=8):
+    def __init__(self, db, accuracy=8):
 
         CONFIG_DB = int(os.getenv('CONFIG_DB'))
-        DATA_DB   = int(os.getenv('DATA_DB'))
 
         self.config = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
-        self.redis = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=DATA_DB)
+        self.redis = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=db)
 
         if self.accuracy is None:
             self.set_accuracy(accuracy)

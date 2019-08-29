@@ -43,10 +43,11 @@ def solve(a_coeff, b_coeff, poly_range, algo):
     Simply iterates through all posibilities of coefficients and
     runs the supplied algorithm with each value and yields the result.
     """
-    
+    const_type = type(mpmath.e)
+
     # for each coefficient combination, solve the polynomial for x 0 => depth
-    if isinstance(poly_range, mpf):
-        x = poly_range
+    if isinstance(poly_range, mpf) or isinstance(poly_range, const_type) or isinstance(poly_range, str):
+        x = mpf(poly_range)
         a_poly = solve_polynomial(a_coeff, x)
         b_poly = solve_polynomial(b_coeff, x)
     else:
@@ -119,6 +120,21 @@ if __name__ == "__main__":
     # 1 + 10 + 3 * 25 = 11 + 75 = 86
     res = solve_polynomial([1,2,3], 5)
     assert (res == 86), f'Expected {res} == 86'
+
+    # phi
+    res = solve((1,0,0), (1,0,0), range(0,200), continued_fraction)
+    assert(res == mpmath.phi)
+
+    # e
+    res = solve((3,1,0), (0,-1,0), range(0,200), continued_fraction)
+    assert(res == mpmath.e)
+
+    # rational function for e
+    res = solve((0,1,0), (1,0,0), mpmath.e, rational_function)
+    assert(res == mpmath.e)
+
+    res = solve((0,1,0), (1,0,0), str(mpmath.e), rational_function)
+    assert(str(res)[:10] == str(mpf(mpmath.e))[:10])
 
     coeff_iter = coefficients([[ [-4,4], [-3,3], [-2,2] ]])
     res = sum([solve_polynomial(coeff[0], 7) for coeff in coeff_iter])

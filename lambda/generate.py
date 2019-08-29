@@ -1,6 +1,5 @@
 import json
 import itertools
-import redis
 import boto3
 from datetime import datetime
 import mpmath
