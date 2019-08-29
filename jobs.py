@@ -62,6 +62,10 @@ def calculate(a_coeffs, b_coeffs, poly_range):
             if result in config.rhs.black_list or mpmath.isnan(result) or mpmath.isinf(result):
                 continue
 
+            # complex numbers not supported yet
+            if isinstance(result, mpmath.mpc):
+                continue
+
             # store the fraction result in the hashtable along with the
             # coefficients that generated it
             algo_data = (rhs_algo.type_id, fn.type_id, a_coeff, b_coeff)
@@ -78,3 +82,13 @@ if __name__ == '__main__':
 
     # phi
     calculate([(1,0,0)], [(1,0,0)], range(0,200))
+
+    a = []
+    b = []
+    a_range = [[ [1,4], [0,2], [0,1] ]]
+    b_range = [[ [0,2], [-1,1], [0,1] ]]
+    for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
+        a.append(a_coeff)
+        b.append(b_coeff)
+
+    calculate(a, b, range(0,200))
