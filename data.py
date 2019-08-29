@@ -23,8 +23,8 @@ class DecimalHashTable():
         CONFIG_DB = int(os.getenv('CONFIG_DB'))
         DATA_DB   = int(os.getenv('DATA_DB'))
 
-        self.config = redis.Redis(host=os.getenv('REDIS_HOSTS'),  port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
-        self.redis = redis.Redis(host=os.getenv('REDIS_HOSTS'),  port=os.getenv('REDIS_PORT'), db=DATA_DB)
+        self.config = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
+        self.redis = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=DATA_DB)
 
         if self.accuracy is None:
             self.set_accuracy(accuracy)

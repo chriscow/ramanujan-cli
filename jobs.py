@@ -40,16 +40,16 @@ app = Celery('jobs', backend=REDIS_CELERY_BACKEND, broker=REDIS_CELERY_BROKER)
 dotenv.load_dotenv()
 
 @app.task
-def calculate(a_coeffs, b_coeffs, poly_range):
+def calculate(algo_name, a_coeffs, b_coeffs, poly_range, black_list):
     
     db = data.DecimalHashTable()
 
-    rhs_algo   = config.rhs.algorithm
+    algo = getattr(algorithms, algo_name)
 
     coeff_list = zip(a_coeffs, b_coeffs)
         
     for a_coeff, b_coeff in coeff_list:
-        value = algorithms.solve(a_coeff, b_coeff, poly_range, rhs_algo)
+        value = algorithms.solve(a_coeff, b_coeff, poly_range, algo)
     
         # get all the functions in the postproc module
         funcs = [value for name,value in inspect.getmembers(postproc) if inspect.isfunction(value)]
@@ -59,7 +59,7 @@ def calculate(a_coeffs, b_coeffs, poly_range):
             # run the algo value through the postproc function
             result = fn(value)
 
-            if result in config.rhs.black_list or mpmath.isnan(result) or mpmath.isinf(result):
+            if black_list and result in black_list or mpmath.isnan(result) or mpmath.isinf(result):
                 continue
 
             # complex numbers not supported yet
@@ -68,7 +68,7 @@ def calculate(a_coeffs, b_coeffs, poly_range):
 
             # store the fraction result in the hashtable along with the
             # coefficients that generated it
-            algo_data = (rhs_algo.type_id, fn.type_id, a_coeff, b_coeff)
+            algo_data = (algo.type_id, fn.type_id, a_coeff, b_coeff)
             db.set(result, algo_data)
 
             # also store just the fractional part of the result

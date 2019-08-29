@@ -41,13 +41,13 @@ rhs.polynomial_range = (0, 201)
 
 # If the algorithm (or postproc functions) results in any of these values, 
 # don't store it
-rhs.black_list = (mpf(0), mpf(1))
+rhs.black_list = (0, 1)
 
 #
 #                    C   +  Bx   + Ax^2
 #
-# rhs.a_range = [[ [-2,2], [-2,2], [-2,2] ]]
-# rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
+rhs.a_range = [[ [-2,2], [-2,2], [-2,2] ]]
+rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
 
 # rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
 # rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
@@ -64,5 +64,5 @@ rhs.black_list = (mpf(0), mpf(1))
 # rhs.b_range = [[ [1,2], [0,1], [0,1] ]]
 
 # just enough range to generate BOTH phi and e
-rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
-rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
+# rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
+# rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]

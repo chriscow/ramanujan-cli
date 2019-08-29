@@ -2,6 +2,7 @@ import os, datetime, time
 import click
 import redis
 import rq
+import inspect
 
 import multiprocessing as mp
 
@@ -32,9 +33,16 @@ def generate():
     CONFIG_DB = os.getenv('CONFIG_DB')
     db = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
 
+    rhs_algo   = config.rhs.algorithm.__name__
     a_range    = config.rhs.a_range
     b_range    = config.rhs.b_range
     poly_range = config.rhs.polynomial_range
+    black_list = config.rhs.black_list
+
+    jobs = queue_work(rhs_algo, a_range, b_range, poly_range, black_list)
+    wait(jobs)
+
+def queue_work(algo, a_range, b_range, poly_range, black_list):
 
     batch_size = 1000
 
@@ -59,7 +67,7 @@ def generate():
         # When the list of a's and b's are up to batch_size, queue a job
         if count % batch_size == 0:
             # We are queuing arrays of coefficients to work on
-            job = jobs.calculate.apply_async((a, b, poly_range))
+            job = jobs.calculate.delay(algo, a, b, poly_range, black_list)
             work.add(job)   # hold onto the job info
             a = []
             b = []
@@ -67,13 +75,17 @@ def generate():
     # If there are any left over coefficients whos array was not evenly
     # divisible by the batch_size, queue them up also
     if len(a):
-        job = jobs.calculate.delay(a, b, poly_range)
+        job = jobs.calculate.delay(algo, a, b, poly_range, black_list)
         work.add(job) 
+
+    return work
+
+
+def wait(work):
 
     total_work = len(work)
     running = True
 
-    print('Waiting for queued work...')
     while len(work):  # while there is still work to do ...
 
         utils.printProgressBar(total_work - len(work), total_work)
@@ -96,9 +108,6 @@ def generate():
         time.sleep(.1)
     
     utils.printProgressBar(total_work, total_work)
-
-    end = datetime.datetime.now()
-    print(f'Hashtable generated in {end - start}')
 
 
 
@@ -160,7 +169,7 @@ def search(silent):
 
         for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
 
-            result = abs(algorithms.solve(a_coeff, b_coeff, const, lhs_algo))
+            result = mpmath.fabs(algorithms.solve(a_coeff, b_coeff, const, lhs_algo))
 
             if result in config.lhs.skip:
                 continue
