@@ -33,7 +33,10 @@ def spawn_workers():
 
 
 from celery import Celery
-app = Celery('jobs', backend='redis://localhost:6379/2', broker='redis://localhost:6379/2')
+dotenv.load_dotenv()
+REDIS_CELERY_BROKER = os.getenv('REDIS_CELERY_BROKER')
+REDIS_CELERY_BACKEND = os.getenv('REDIS_CELERY_BACKEND')
+app = Celery('jobs', backend=REDIS_CELERY_BACKEND, broker=REDIS_CELERY_BROKER)
 dotenv.load_dotenv()
 
 @app.task
