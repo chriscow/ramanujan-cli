@@ -23,6 +23,7 @@ python-dotenv = "*"
 tornado = "*"
 redis = "*"
 celery = "*"
+flower = "*"
 
 [requires]
 python_version = "3.7"

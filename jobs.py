@@ -60,7 +60,7 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
 
         for fn in funcs:
             
-            print(f'a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
+            # print(f'a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
 
             # run the algo value through the postproc function
             result = fn(value)

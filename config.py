@@ -29,13 +29,8 @@ lhs.algorithm = algorithms.rational_function
 # lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
 # lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
 
-# lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-# lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-
-#bug
-lhs.constants = [mpf(1.61803398874989)]
-lhs.a_range   = [[ [-2,-1], [-2,-1], [-2,-1] ]]
-lhs.b_range   = [[ [-1,0], [-1,0], [1,2] ]]
+lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
+lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
 
 
 rhs = Config()
