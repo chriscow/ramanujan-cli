@@ -46,7 +46,7 @@ def solve(a_coeff, b_coeff, poly_range, algo):
     const_type = type(mpmath.e)
 
     # for each coefficient combination, solve the polynomial for x 0 => depth
-    if isinstance(poly_range, mpf) or isinstance(poly_range, const_type) or isinstance(poly_range, str):
+    if isinstance(poly_range, mpf) or isinstance(poly_range, const_type):
         x = mpf(poly_range)
         a_poly = solve_polynomial(a_coeff, x)
         b_poly = solve_polynomial(b_coeff, x)

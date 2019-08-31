@@ -8,29 +8,7 @@ import data
 import postproc
 
 import mpmath
-
-import multiprocessing
-from multiprocessing import Process
-from subprocess import Popen, DEVNULL
-
-def add(a, b):
-    return a + b
-
-
-def spawn_workers():
-    '''
-    Spawns worker subprocesses based on CPU count.
-
-    Returns:
-        Array of process objects
-    '''
-    workers = []
-    cores = multiprocessing.cpu_count()
-    for core in range(cores):
-        workers.append(Popen(['rq', 'worker'], stdout=DEVNULL, stderr=DEVNULL))
-
-    return workers
-
+from mpmath import mpf
 
 from celery import Celery
 app = Celery()
@@ -38,12 +16,22 @@ app.config_from_object('celeryconfig')
 
 dotenv.load_dotenv()
 
+
+@app.task
+def add(a, b):
+    return a + b
+
+@app.task
+def ping(srctime):
+    return srctime
+
 @app.task
 def query(algo_name, a_coeffs, b_coeffs, poly_range, black_list):
     
     pass
 
-@app.task
+
+@app.task()
 def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
     
     db = data.DecimalHashTable(db=db, accuracy=accuracy)
@@ -51,10 +39,12 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
     algo = getattr(algorithms, algo_name)
 
     coeff_list = zip(a_coeffs, b_coeffs)
+
+    poly_range = eval(poly_range)
         
     for a_coeff, b_coeff in coeff_list:
         value = algorithms.solve(a_coeff, b_coeff, poly_range, algo)
-    
+
         # get all the functions in the postproc module
         funcs = [fn for name,fn in inspect.getmembers(postproc) if inspect.isfunction(fn)]
 
@@ -74,7 +64,8 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
 
             # store the fraction result in the hashtable along with the
             # coefficients that generated it
-            algo_data = (algo.type_id, fn.type_id, a_coeff, b_coeff)
+            bin_range = bytes(poly_range.__repr__(), 'utf-8') # binary string representation
+            algo_data = (algo.type_id, fn.type_id, bin_range, a_coeff, b_coeff)
             db.set(result, algo_data)
 
             # also store just the fractional part of the result

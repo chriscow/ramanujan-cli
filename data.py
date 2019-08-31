@@ -2,8 +2,9 @@ import os
 import redis
 import dotenv
 import mpmath
-from mpmath import mpf   # replacement for Decimal
+from mpmath import mpf   
 
+import config
 
 '''
 Implements a hashtable for Decimal values. This is barely an extension of the 
@@ -18,14 +19,19 @@ accuracy may be redefined), support for serialization by dill/pickle and
 class DecimalHashTable():
     """Hashtable with decimal keys. Supports an arbitrary and varying precision for the keys."""
     
-    def __init__(self, db, accuracy=8):
+    def __init__(self, db, accuracy=None):
 
         CONFIG_DB = int(os.getenv('CONFIG_DB'))
+
+        # If it wasn't passed in, pull it from config
+        if accuracy is None:
+            accuracy = config.hash_precision
 
         self.config = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
         self.redis = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=db)
 
-        if self.accuracy is None:
+        # If the database is empty, then set the initial value
+        if self.get_accuracy() is None:
             self.set_accuracy(accuracy)
 
 
@@ -55,7 +61,7 @@ class DecimalHashTable():
         return self.config.lrange('accuracy_history', 0, -1)
 
 
-    def _manipulate_key(self, key):
+    def manipulate_key(self, key):
         '''
         Converts an mpf() numeric value to a string of length indicated by the
         current accuracy value as well as all previous accuracy values.
@@ -103,8 +109,8 @@ class DecimalHashTable():
 
         return old_keys, cur_key
 
-    def keys(self, pattern='*'):
-        return self.redis.keys(pattern)
+
+
 
     def get(self, key, default=None):
         '''
@@ -126,7 +132,7 @@ class DecimalHashTable():
                 return default
 
         # Normalize the key
-        old_keys, cur_key = self._manipulate_key(key)
+        old_keys, cur_key = self.manipulate_key(key)
 
         # Dig through the old keys to see if we have a match
         for k in old_keys:
@@ -140,7 +146,7 @@ class DecimalHashTable():
             return val
         
         # If we made it here, there was no match so return the default value
-        return d
+        return default
 
 
     def set(self, key, value):
@@ -165,7 +171,7 @@ class DecimalHashTable():
                 return value
 
         # Normalize the key
-        old_keys, cur_key = self._manipulate_key(key)
+        old_keys, cur_key = self.manipulate_key(key)
 
         value = bytes(value.__repr__(), 'utf-8')
 

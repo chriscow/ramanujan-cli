@@ -5,39 +5,80 @@ import rq
 import inspect
 import dotenv
 
-import multiprocessing as mp
+import mpmath
+from mpmath import mpf
 
 import algorithms
+import config
+import data
 import jobs
+import postproc
 import utils
-
-from config import *
-
 
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
-def search(silent):
+def clean(silent):
+    '''
+    Deletes all data from redis to start from scatch.
+    '''
+    for i in range(0, 16):
+        db = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=i)
+        result = db.flushdb()
 
-    for job in completed:
-        
-        job.result
-        if job.status == 'SUCCESS':
+    if not silent:
+        print('Redis data deleted')
 
-            if ht.get(result):
-                val = ht.get(result)
-                for algo_type, a, b in val:
-                    if algo_type == algorithms.continued_fraction.type_id:
-                        print('RHS:')
-                        print(utils.polynomial_to_string(a_coeff, const))
-                        print('-' * 50)
-                        print(utils.polynomial_to_string(b_coeff, const))
+def get_funcs(module):
+    result = {}
+    funcs = [fn for name,fn in inspect.getmembers(module) if inspect.isfunction(fn)]
+    for fn in funcs:
+        if hasattr(fn, 'type_id'):
+            type_id = getattr(fn, 'type_id')
+            result[type_id] = fn.__name__
 
-                        print(utils.cont_frac_to_string(result, a, b))
-                    else:
-                        print(result, val)
+    return result
 
+@click.argument('filename')
+@click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
-def generate():
+def search(filename, silent):
+
+    lhs = data.DecimalHashTable(db=int(os.getenv('LHS_DB')))
+    rhs = data.DecimalHashTable(db=int(os.getenv('RHS_DB')))
+
+    lhs_size = lhs.redis.dbsize()
+    rhs_size = rhs.redis.dbsize()
+
+    postprocs = get_funcs(postproc)
+    algos = get_funcs(algorithms)
+
+    cur = 0
+    with open(filename, 'w') as output:
+        for key in lhs.redis.scan_iter():
+
+            # rhs_vals is a list of algorithm parameters used to generate the result
+            rhs_vals = rhs.redis.lrange(key, 0, -1)
+            for rhs_val in rhs_vals:
+
+                lhs_algo_id, lhs_postfn_id, constant, lhs_a_coeff, lhs_b_coeff = eval(lhs.redis.lrange(key, 0, 1)[0])
+                rhs_algo_id, rhs_postfn_id, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs_val)
+                output.write('\n')
+                output.write(f'LHS Key:{key} {algos[lhs_algo_id]} {postprocs[lhs_postfn_id]} {constant} {lhs_a_coeff} {lhs_b_coeff}\n')
+                output.write(f'RHS: {algos[rhs_algo_id]} {postprocs[rhs_postfn_id]} {poly_range} {rhs_a_coeff} {rhs_b_coeff}\n')
+
+            if not silent:
+                cur += 1
+                utils.printProgressBar(cur, lhs_size)
+
+
+
+
+@click.option('--rhs', '-r', is_flag=True, default=False, help='Generate only the right hand side data')
+@click.option('--lhs', '-l', is_flag=True, default=False, help='Generate only the left hand side data')
+@click.option('--debug', '-d', is_flag=True, default=False, help='Runs synchronously without queueing')
+@click.option('--silent', '-s', is_flag=True, default=False)
+@click.command()
+def generate(rhs, lhs, debug, silent):
     '''
     This command takes the configured coefficient ranges and divides them up
     for separate processes to work on the smaller chunks.  Each chunk is saved
@@ -45,55 +86,69 @@ def generate():
 
     Those workers post their results directly to the hashtable.
     '''
-    dotenv.load_dotenv()
 
-    precision  = hash_precision
+    # If neither rhs or lhs options were selected, choose both by default
+    if not rhs and not lhs:
+        rhs = True
+        lhs = True
 
-    rhs_db = int(os.getenv('RHS_DB'))
-    lhs_db = int(os.getenv('LHS_DB'))
 
-    rhs_algo   = rhs.algorithm.__name__
-    lhs_algo   = lhs.algorithm.__name__
+    work = set()
 
-    rhs_a_range    = rhs.a_range
-    rhs_b_range    = rhs.b_range
-    poly_range     = rhs.polynomial_range
-    rhs_black_list = rhs.black_list
+    if not silent:
+        print('')
+        print('Queuing work ...')
+
+    if rhs:
+        jobs = _generate(config.rhs, int(os.getenv('RHS_DB')), False, debug, silent)
+        work |= jobs
+
+    if lhs:
+        jobs = _generate(config.lhs, int(os.getenv('LHS_DB')), True, debug, silent)
+        work |= jobs
+
+    if not silent:
+        print('')
+        print(f'Waiting for {len(work)} jobs ...')
     
-    lhs_a_range = lhs.a_range
-    lhs_b_range = lhs.b_range
+    wait(work, silent)
 
-    print('Queuing rhs jobs...', end='')
-    rhs_jobs = queue_work(rhs_db, precision, rhs.algorithm.__name__, 
-        rhs.a_range, rhs.b_range, 
-        rhs.polynomial_range, rhs.black_list)
+    for job in work:
+        job.forget()  # free up the resources
 
-    print(f'{len(rhs_jobs)}')
 
-    print('Queuing lhs jobs...', end='')
+def _generate(side, db, use_constants, debug=False, silent=False):
+
+    precision  = config.hash_precision
     const_type = type(mpmath.e)
 
-    for const in lhs.constants:
-        # mpf is not serializable so convert to string
-        const = str(const)
+    algo   = side.algorithm.__name__
 
-        print(f'------- starting const: {const}')
-        lhs_jobs = queue_work(lhs_db, precision, lhs.algorithm.__name__, 
-            lhs.a_range, lhs.b_range, 
-            const, lhs.black_list, asynch=False)
+    a_range    = side.a_range
+    b_range    = side.b_range
+    poly_range = config.polynomial_range
+    black_list = side.black_list
+    
+    work = set()
 
-    print(f'{len(lhs_jobs)}')
-    print(f'Total queued jobs: {len(rhs_jobs | lhs_jobs)}')
+    if use_constants:
+        count = 0
+        for const in config.constants:
+            # mpf is not serializable so convert to string
+            const = mpf(const)
+            jobs = queue_work(db, precision, algo, a_range, b_range, const, black_list, debug=debug)
+            work |= jobs
+            count += 1
+            utils.printProgressBar(count, len(config.constants))
+    else:
+        work = queue_work(db, precision, algo, a_range, b_range, config.polynomial_range, black_list)
 
-    completed = wait(rhs_jobs | lhs_jobs)
-
-    for job in completed:
-        job.forget() # release results & resources held by job
+    return work
 
 
-def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_list, asynch=True):
+def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_list, debug=False):
     '''
-    Queues the algorithm
+    Queues the algorithm calculations to be run and stored in the database.
     '''
     batch_size = 100
 
@@ -116,29 +171,38 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
         # When the list of a's and b's are up to batch_size, queue a job
         if count % batch_size == 0:
             # We are queuing arrays of coefficients to work on
-            if asynch:
-                job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
-                work.add(job)   # hold onto the job info
+            if debug:
+                jobs.store(db, precision, algo_name, a, b, repr(poly_range), black_list)
             else:
-                jobs.store(db, precision, algo_name, a, b, poly_range, black_list)
+                job = jobs.store.delay(db, precision, algo_name, a, b, repr(poly_range), black_list)
+                work.add(job)   # hold onto the job info
+
             a = []
             b = []
 
     # If there are any left over coefficients whos array was not evenly
     # divisible by the batch_size, queue them up also
     if len(a):
-        if asynch:
-            job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
-            work.add(job) 
+        if debug:
+            jobs.store(db, precision, algo_name, a, b, repr(poly_range), black_list)
         else:
-            jobs.store(db, precision, algo_name, a, b, poly_range, black_list)
+            job = jobs.store.delay(db, precision, algo_name, a, b, repr(poly_range), black_list)
+            work.add(job) 
 
-    print('Done')
     return work
 
 
-def wait(work):
+def wait(work, silent):
+    '''
+    Waits on a set of celery job objects to complete. The caller is responsible
+    for calling forget() on the result to remove it from the backend.
 
+    Arguments:
+        work - a Python set() object containing Celery AsyncResult instances
+
+    Returns:
+        All of the jobs passed in
+    '''
     total_work = len(work)
     running = True
 
@@ -147,7 +211,6 @@ def wait(work):
         utils.printProgressBar(total_work - len(work), total_work)
 
         completed_jobs = set()  # hold completed jobs done in this loop pass
-        failed_jobs = set()     # same for failed jobs
 
         for job in work:
             
@@ -158,10 +221,8 @@ def wait(work):
         # print(f'completed:{len(completed_jobs)} failed:{len(failed_jobs)}')
 
         # Removes completed jobs from work
-        work = work - completed_jobs - failed_jobs
-
+        work = work - completed_jobs
         time.sleep(.1)
     
-    utils.printProgressBar(total_work, total_work)
-    return completed_jobs
-
+    if not silent:
+        utils.printProgressBar(total_work, total_work)

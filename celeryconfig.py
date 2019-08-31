@@ -1,4 +1,4 @@
-## Broker settings.
+# Broker settings.
 broker_url = 'redis://localhost:6379/15'
 
 # List of modules to import when the Celery worker starts.
