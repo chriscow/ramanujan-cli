@@ -53,7 +53,7 @@ def search(filename, silent):
     algos = get_funcs(algorithms)
 
     cur = 0
-    with open(filename, 'w') as output:
+    with open(filename, 'w+') as output:
         for key in lhs.redis.scan_iter():
 
             # rhs_vals is a list of algorithm parameters used to generate the result
