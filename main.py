@@ -6,6 +6,9 @@ import redis
 import jobs
 from datetime import datetime, timedelta
 from subprocess import Popen, DEVNULL
+from multiprocessing import cpu_count
+
+# ssh -i "ramanujan.pem" -L 6379:ramanujan.afnsuz.0001.usw2.cache.amazonaws.com:6379 ec2-user@ec2-52-38-8-180.us-west-2.compute.amazonaws.com
 
 @click.group()
 def cli():
@@ -80,7 +83,7 @@ def check_worker_status():
     job = jobs.ping.delay(job_started)
 
     job_timeout = timedelta(seconds=1)
-
+    
     while not job.ready():
         time.sleep(.1)            
         elapsed = datetime.now() - job_started
@@ -90,7 +93,7 @@ def check_worker_status():
             'Open a new terminal window and be sure you are in the project directory,',
             'and run:',
             '',
-            '\tcelery -A jobs worker -l INFO'])
+            f'\tcelery -A jobs worker -l info --concurrency {cpu_count() - 2}'])
 
 
 if __name__ == '__main__':

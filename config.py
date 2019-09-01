@@ -5,10 +5,15 @@ from mpmath import mpf
 # set the decimal precision (not hashtable precision)
 mpmath.mp.dps = 15  # 15 decimal places is the default for mpmath anyway but you can change it here
 
+
 # just an empty object we can hang properties off of dynamically
 class Config(object): pass
 
 hash_precision = 8
+
+# range(i, j) polynomial f(x) goes from i to j - 1
+polynomial_range = (0, 201)
+
 
 lhs = Config()
 
@@ -21,8 +26,7 @@ mpmath.apery, mpmath.khinchin, mpmath.glaisher, mpmath.mertens, mpmath.twinprime
 '25.010857580145688763213790992562821818659549672557996672496542006745',
 '30.424876125859513210311897530584091320181560023715440180962146036993']
 
-# range(i, j) polynomial f(x) goes from i to j - 1
-polynomial_range = (0, 201)
+
 
 # Ignore lhs results that equal these values
 lhs.black_list = (0,1,2)
@@ -39,6 +43,14 @@ lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
 # lhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
 # lhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
 
+# don't do this one yet ...  
+#       ____
+#     ,'   Y`.
+#    /        \
+#    \ ()  () /
+#     `. /\ ,'
+# 8====| "" |====8
+#      `LLLU'
 # lhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
 # lhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
 
@@ -58,11 +70,8 @@ rhs.black_list = (0, 1)
 # rhs.a_range = [[ [-2,2], [-2,2], [-2,2] ]]
 # rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
 
-# rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
-# rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
-
-rhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
-rhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
+rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
+rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
 
 # continued fraction for e
 # rhs.a_range = [[ [3,4], [1,2], [0,1] ]] 
@@ -75,3 +84,16 @@ rhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
 # just enough range to generate BOTH phi and e
 # rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
 # rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
+
+# don't do this one yet ...  
+#       ____
+#     ,'   Y`.
+#    /        \
+#    \ ()  () /
+#     `. /\ ,'
+# 8====| "" |====8
+#      `LLLU'
+# rhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
+# rhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
+
+
