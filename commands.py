@@ -1,9 +1,14 @@
-import os, datetime, time
+import os, time, itertools
+from datetime import datetime, timedelta
 import click
 import redis
 import rq
 import inspect
 import dotenv
+import redis
+import decimal_hashtable as dht
+
+import dill as pickle
 
 import mpmath
 from mpmath import mpf
@@ -15,34 +20,52 @@ import jobs
 import postproc
 import utils
 
-@click.option('--silent', '-s', is_flag=True, default=False)
-@click.command()
-def clean(silent):
-    '''
-    Deletes all data from redis to start from scatch.
-    '''
-    for i in range(0, 16):
-        db = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=i)
-        result = db.flushdb()
-
-    if not silent:
-        print('Redis data deleted')
-
-def get_funcs(module):
-    result = {}
-    funcs = [fn for name,fn in inspect.getmembers(module) if inspect.isfunction(fn)]
-    for fn in funcs:
-        if hasattr(fn, 'type_id'):
-            type_id = getattr(fn, 'type_id')
-            result[type_id] = fn.__name__
-
-    return result
 
 @click.argument('filename')
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
 def search(filename, silent):
+    '''
+    We want to:
+        - make a first pass and find all key matches between the two sides
+        - with all matches, 
+    '''
+    
+    good = []
 
+    for key, lhs_vals, rhs_vals in key_matches():
+
+        for lhs_val, rhs_val in itertools.product(lhs_vals, rhs_vals):  
+            
+            lhs_algo_id, lhs_postfn_id, constant, lhs_a_coeff, lhs_b_coeff = eval(lhs_args)
+            rhs_algo_id, rhs_postfn_id, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs_val)
+
+            mpmath.mp.dps *= 2
+
+            lhs_algo = algos[lhs_algo_id]
+            lhs_post = postprocs[lhs_postfn_id]
+
+            lhs = algorithms.solve(lhs_a_coeff, lhs_b_coeff, mpf(constant), lhs_algo)
+            rhs = algorithms.solve(rhs_a_coeff, rhs_b_coeff, range(0, 2000), rhs_algo)
+
+            if lhs == rhs:
+                good.append(key)
+
+                # lhs_algo_id, lhs_postfn_id, constant, lhs_a_coeff, lhs_b_coeff = eval(lhs.redis.lrange(key, 0, 1)[0])
+                # rhs_algo_id, rhs_postfn_id, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs_val)
+                # output.write('\n')
+                # output.write(f'LHS Key:{key} {algos[lhs_algo_id]} {postprocs[lhs_postfn_id]} {constant} {lhs_a_coeff} {lhs_b_coeff}\n')
+                # output.write(f'RHS: {algos[rhs_algo_id]} {postprocs[rhs_postfn_id]} {poly_range} {rhs_a_coeff} {rhs_b_coeff}\n')
+    
+
+def key_matches():
+    '''
+    Searches for keys from the lhs in the rhs.
+
+    Returns:
+        Three element array:
+            matching key, lhs algo arguments, rhs algo arguments
+    '''
     lhs = data.DecimalHashTable(db=int(os.getenv('LHS_DB')))
     rhs = data.DecimalHashTable(db=int(os.getenv('RHS_DB')))
 
@@ -56,15 +79,11 @@ def search(filename, silent):
     with open(filename, 'w+') as output:
         for key in lhs.redis.scan_iter():
 
-            # rhs_vals is a list of algorithm parameters used to generate the result
+            # *hs_vals is a list of algorithm parameters used to generate the result
+            lhs_vals = lhs.redis.lrange(key, 0, -1)
             rhs_vals = rhs.redis.lrange(key, 0, -1)
-            for rhs_val in rhs_vals:
 
-                lhs_algo_id, lhs_postfn_id, constant, lhs_a_coeff, lhs_b_coeff = eval(lhs.redis.lrange(key, 0, 1)[0])
-                rhs_algo_id, rhs_postfn_id, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs_val)
-                output.write('\n')
-                output.write(f'LHS Key:{key} {algos[lhs_algo_id]} {postprocs[lhs_postfn_id]} {constant} {lhs_a_coeff} {lhs_b_coeff}\n')
-                output.write(f'RHS: {algos[rhs_algo_id]} {postprocs[rhs_postfn_id]} {poly_range} {rhs_a_coeff} {rhs_b_coeff}\n')
+            yield (key, lhs_vals, rhs_vals)
 
             if not silent:
                 cur += 1
@@ -76,7 +95,7 @@ def search(filename, silent):
 @click.option('--rhs', '-r', is_flag=True, default=False, help='Generate only the right hand side data')
 @click.option('--lhs', '-l', is_flag=True, default=False, help='Generate only the left hand side data')
 @click.option('--debug', '-d', is_flag=True, default=False, help='Runs synchronously without queueing')
-@click.option('--silent', '-s', is_flag=True, default=False)
+@click.option('--silent', is_flag=True, default=False)
 @click.command()
 def generate(rhs, lhs, debug, silent):
     '''
@@ -86,35 +105,27 @@ def generate(rhs, lhs, debug, silent):
 
     Those workers post their results directly to the hashtable.
     '''
+    start = datetime.now()  # keep track of what time we started
 
     # If neither rhs or lhs options were selected, choose both by default
     if not rhs and not lhs:
         rhs = True
         lhs = True
 
+    lhs_data = data.DecimalHashTable(db=int(os.getenv('LHS_DB')))
+    rhs_data = data.DecimalHashTable(db=int(os.getenv('RHS_DB')))
 
     work = set()
 
-    if not silent:
-        print('')
-        print('Queuing work ...')
-
     if rhs:
         jobs = _generate(config.rhs, int(os.getenv('RHS_DB')), False, debug, silent)
-        work |= jobs
+        wait(rhs_data, jobs, silent)
+
 
     if lhs:
         jobs = _generate(config.lhs, int(os.getenv('LHS_DB')), True, debug, silent)
-        work |= jobs
+        wait(lhs_data, jobs, silent)
 
-    if not silent:
-        print('')
-        print(f'Waiting for {len(work)} jobs ...')
-    
-    wait(work, silent)
-
-    for job in work:
-        job.forget()  # free up the resources
 
 
 def _generate(side, db, use_constants, debug=False, silent=False):
@@ -136,30 +147,30 @@ def _generate(side, db, use_constants, debug=False, silent=False):
         for const in config.constants:
             # mpf is not serializable so convert to string
             const = mpf(const)
-            jobs = queue_work(db, precision, algo, a_range, b_range, const, black_list, debug=debug)
+            jobs = queue_work(db, precision, algo, a_range, b_range, const, black_list, debug=debug, silent=True)
             work |= jobs
             count += 1
-            utils.printProgressBar(count, len(config.constants))
+
+            if not silent:
+                utils.printProgressBar(count, len(config.constants), prefix='Queuing constants', suffix='          ')
     else:
-        work = queue_work(db, precision, algo, a_range, b_range, config.polynomial_range, black_list)
+        work = queue_work(db, precision, algo, a_range, b_range, config.polynomial_range, black_list, debug=debug, silent=silent)
 
     return work
 
 
-def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_list, debug=False):
+def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_list, debug=False, silent=False):
     '''
     Queues the algorithm calculations to be run and stored in the database.
     '''
     batch_size = 100
 
-    #total_work = algorithms.range_length(b_range, algorithms.range_length(a_range))
+    total_work = algorithms.range_length(b_range, algorithms.range_length(a_range))
 
     count = 1
     a = []  # holds a subset of the coefficient a-range
     b = []  # holds a subset of the coefficient b-range
     work = set()  # set of all jobs queued up to know when we are done
-
-    start = datetime.datetime.now()  # keep track of what time we started
 
     # Loop through all coefficient possibilities
     for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
@@ -167,6 +178,7 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
         a.append(a_coeff)
         b.append(b_coeff)
         count += 1
+
 
         # When the list of a's and b's are up to batch_size, queue a job
         if count % batch_size == 0:
@@ -176,6 +188,9 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
             else:
                 job = jobs.store.delay(db, precision, algo_name, a, b, repr(poly_range), black_list)
                 work.add(job)   # hold onto the job info
+
+            if not silent:
+                utils.printProgressBar(count, total_work, prefix=f'Queueing {count}/{total_work}', suffix='          ')
 
             a = []
             b = []
@@ -192,7 +207,7 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
     return work
 
 
-def wait(work, silent):
+def wait(ht, work, silent):
     '''
     Waits on a set of celery job objects to complete. The caller is responsible
     for calling forget() on the result to remove it from the backend.
@@ -204,17 +219,33 @@ def wait(work, silent):
         All of the jobs passed in
     '''
     total_work = len(work)
-    running = True
+    eta = timedelta()
+
+    # db = data.DecimalHashTable(db=db)    
+    # db = dht.DecimalHashTable(config.precision)
+
+    utils.printProgressBar(0, total_work, prefix='Waiting ...', suffix='          ')
 
     while len(work):  # while there is still work to do ...
 
-        utils.printProgressBar(total_work - len(work), total_work)
-
         completed_jobs = set()  # hold completed jobs done in this loop pass
+        elapsed = []  # average the elapsed time for each job
 
         for job in work:
             
             if job.ready():
+                # for key, values in job.result.items():
+                #     for value in values:
+                #         ht.set(key, value)
+
+                retries = 3
+                while retries > 0:
+                    try:
+                        job.forget()
+                        break
+                    except redis.exceptions.ConnectionError:
+                        retries -= 1
+
                 completed_jobs.add(job)
                 continue
             
@@ -223,6 +254,40 @@ def wait(work, silent):
         # Removes completed jobs from work
         work = work - completed_jobs
         time.sleep(.1)
+
+        if not silent:
+
+            if len(elapsed):
+                # work left / work done on this pass * seconds
+                avg_secs = sum(elapsed) / len(elapsed)
+                eta = timedelta(seconds = len(work) / len(elapsed) * avg_secs)
+
+            utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='          ') # eta not working, suffix=f'ETA: {eta}')
     
     if not silent:
-        utils.printProgressBar(total_work, total_work)
+        utils.printProgressBar(total_work, total_work, suffix='          ')
+
+
+@click.option('--silent', '-s', is_flag=True, default=False)
+@click.command()
+def clean(silent):
+    '''
+    Deletes all data from redis to start from scatch.
+    '''
+    for i in range(0, 16):
+        db = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=i)
+        result = db.flushdb()
+
+    if not silent:
+        print('Redis data deleted')
+
+
+def get_funcs(module):
+    result = {}
+    funcs = [fn for name,fn in inspect.getmembers(module) if inspect.isfunction(fn)]
+    for fn in funcs:
+        if hasattr(fn, 'type_id'):
+            type_id = getattr(fn, 'type_id')
+            result[type_id] = fn.__name__
+
+    return result

@@ -24,6 +24,7 @@ tornado = "*"
 redis = "*"
 celery = "*"
 flower = "*"
+dill = "*"
 
 [requires]
 python_version = "3.7"
