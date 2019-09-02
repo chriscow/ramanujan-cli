@@ -45,14 +45,20 @@ def solve(a_coeff, b_coeff, poly_range, algo):
     """
     const_type = type(mpmath.e)
 
+    try:
+        # if it can be cast to a float, then convert it to mpf
+        float(poly_range)
+        poly_range = mpf(poly_range)
+    except ValueError:
+        poly_range = eval(poly_range)
+
     # for each coefficient combination, solve the polynomial for x 0 => depth
-    if isinstance(poly_range, mpf) or isinstance(poly_range, const_type):
-        x = mpf(poly_range)
-        a_poly = solve_polynomial(a_coeff, x)
-        b_poly = solve_polynomial(b_coeff, x)
+    if isinstance(poly_range, mpf) or isinstance(poly_range, const_type) or isinstance(poly_range, str):
+        a_poly = solve_polynomial(a_coeff, poly_range)
+        b_poly = solve_polynomial(b_coeff, poly_range)
     else:
-        a_poly = [solve_polynomial(a_coeff, x) for x in poly_range]
-        b_poly = [solve_polynomial(b_coeff, x) for x in poly_range]
+        a_poly = [solve_polynomial(a_coeff, x) for x in range(*poly_range)]
+        b_poly = [solve_polynomial(b_coeff, x) for x in range(*poly_range)]
 
     return algo(a_poly, b_poly)
         

@@ -6,12 +6,6 @@ from mpmath import mpf
 
 import config
 
-redis_config_pool = None
-redis_data_pool = None
-
-
-
-
 '''
 Implements a hashtable for Decimal values. This is barely an extension of the 
 dict type to support Decimal with a defined decimal accuracy as keys.
@@ -29,22 +23,12 @@ class DecimalHashTable():
 
         CONFIG_DB = int(os.getenv('CONFIG_DB'))
 
-        global redis_config_pool
-        global redis_data_pool
-
-        if redis_config_pool is None:
-            redis_config_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
-
-        if redis_data_pool is None:
-            redis_data_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=db)
-
-
         # If it wasn't passed in, pull it from config
         if accuracy is None:
             accuracy = config.hash_precision
 
-        self.config = redis.Redis(connection_pool=redis_config_pool)
-        self.redis = redis.Redis(connection_pool=redis_data_pool)
+        self.config = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
+        self.redis = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=db)
 
         # If the database is empty, then set the initial value
         if self.get_accuracy() is None:
@@ -140,6 +124,9 @@ class DecimalHashTable():
         Returns:
             List of items stored with the cache key otherwise the default value
         '''
+        if isinstance(key, bytes):
+            key = key.decode('utf-8')
+
         if isinstance(key, mpf):
             if mpmath.isnan(key):
                 return default

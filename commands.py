@@ -1,14 +1,9 @@
 import os, time, itertools
 from datetime import datetime, timedelta
 import click
-import redis
-import rq
 import inspect
 import dotenv
 import redis
-import decimal_hashtable as dht
-
-import dill as pickle
 
 import mpmath
 from mpmath import mpf
@@ -31,34 +26,84 @@ def search(filename, silent):
         - with all matches, 
     '''
     
-    good = []
+    ht = data.DecimalHashTable(0)
+    postprocs = utils.get_funcs(postproc)
+    algos = utils.get_funcs(algorithms)
 
-    for key, lhs_vals, rhs_vals in key_matches():
+    matches = set()
+
+    for key, lhs_vals, rhs_vals in key_matches(silent):
 
         for lhs_val, rhs_val in itertools.product(lhs_vals, rhs_vals):  
             
-            lhs_algo_id, lhs_postfn_id, constant, lhs_a_coeff, lhs_b_coeff = eval(lhs_args)
-            rhs_algo_id, rhs_postfn_id, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs_val)
+            _,_,lhs_result,_,_,_ = eval(lhs_val)
+            _,_,rhs_result,_,_,_ = eval(rhs_val)
 
-            mpmath.mp.dps *= 2
+            lhs = jobs.reverse_solve(eval(lhs_val))
+            assert(lhs == lhs_result)
 
-            lhs_algo = algos[lhs_algo_id]
-            lhs_post = postprocs[lhs_postfn_id]
+            rhs = jobs.reverse_solve(eval(rhs_val))
+            assert(rhs == rhs_result)
 
-            lhs = algorithms.solve(lhs_a_coeff, lhs_b_coeff, mpf(constant), lhs_algo)
-            rhs = algorithms.solve(rhs_a_coeff, rhs_b_coeff, range(0, 2000), rhs_algo)
+            _, lhs_key = ht.manipulate_key(lhs)
+            _, rhs_key = ht.manipulate_key(rhs)
+            if (lhs_key != rhs_key):
+                print(f'key mismatch lhs:{lhs_key} != rhs:{rhs_key}')
+            
+            if mpmath.fabs(lhs) == mpmath.fabs(rhs):
+                matches.add( (lhs_val, rhs_val) )
 
-            if lhs == rhs:
-                good.append(key)
+    if not silent:
+        print(f'Found {len(matches)} matches at {mpmath.mp.dps} decimal places ...')
 
-                # lhs_algo_id, lhs_postfn_id, constant, lhs_a_coeff, lhs_b_coeff = eval(lhs.redis.lrange(key, 0, 1)[0])
-                # rhs_algo_id, rhs_postfn_id, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs_val)
-                # output.write('\n')
-                # output.write(f'LHS Key:{key} {algos[lhs_algo_id]} {postprocs[lhs_postfn_id]} {constant} {lhs_a_coeff} {lhs_b_coeff}\n')
-                # output.write(f'RHS: {algos[rhs_algo_id]} {postprocs[rhs_postfn_id]} {poly_range} {rhs_a_coeff} {rhs_b_coeff}\n')
+    # Matches contains the arguments where the values matched exactly
+    # at 15 decimal places (whatever is in the config)
+    #
+    # Now lets try matching more decimal places
+    while len(matches) and mpmath.mp.dps < 500:
+        bigger_matches = set()
+        mpmath.mp.dps *= 2
+        count = 0
+        for lhs_val, rhs_val in matches:
+
+            # expand the polynomial range for the rhs
+            rhs_algo = list(eval(rhs_val))
+            poly_range = eval(rhs_algo[3])
+            poly_range = (poly_range[0] * -10, poly_range[1] * 10)
+            rhs_algo[3] = bytes(repr(poly_range), 'utf-8')
+
+            lhs = jobs.reverse_solve(eval(lhs_val))
+            rhs = jobs.reverse_solve(rhs_algo)
+
+            if mpmath.fabs(lhs) == mpmath.fabs(rhs):
+                bigger_matches.add( (lhs_val, rhs_val) )
+
+            if not silent:
+                count += 1
+                utils.printProgressBar(count, len(matches), prefix=f' Trying {mpmath.mp.dps} places', suffix='          ')
+
+        if not silent:
+            print(f'Found {len(bigger_matches)} matches at {mpmath.mp.dps} decimal places ...')
+        
+        matches = bigger_matches
+    
+    for lhs, rhs in bigger_matches:
+        lhs_algo_id, lhs_post, lhs_result, const, lhs_a_coeff, lhs_b_coeff = eval(lhs)
+        rhs_algo_id, rhs_post, rhs_result, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs)
+
+        print('')
+        print('-' * 60)
+        print('')
+        print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
+        print(f'RHS: {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_coeff} b:{rhs_b_coeff})) for x => poly range:{poly_range}')
+        print('')
     
 
-def key_matches():
+
+
+    
+
+def key_matches(silent):
     '''
     Searches for keys from the lhs in the rhs.
 
@@ -72,22 +117,18 @@ def key_matches():
     lhs_size = lhs.redis.dbsize()
     rhs_size = rhs.redis.dbsize()
 
-    postprocs = get_funcs(postproc)
-    algos = get_funcs(algorithms)
-
     cur = 0
-    with open(filename, 'w+') as output:
-        for key in lhs.redis.scan_iter():
+    for key in lhs.redis.scan_iter():
 
-            # *hs_vals is a list of algorithm parameters used to generate the result
-            lhs_vals = lhs.redis.lrange(key, 0, -1)
-            rhs_vals = rhs.redis.lrange(key, 0, -1)
-
+        # *hs_vals is a list of algorithm parameters used to generate the result
+        lhs_vals = lhs.get(key)
+        rhs_vals = rhs.get(key)
+        if rhs_vals:
             yield (key, lhs_vals, rhs_vals)
 
-            if not silent:
-                cur += 1
-                utils.printProgressBar(cur, lhs_size)
+        if not silent:
+            cur += 1
+            utils.printProgressBar(cur, lhs_size)
 
 
 
@@ -145,16 +186,14 @@ def _generate(side, db, use_constants, debug=False, silent=False):
     if use_constants:
         count = 0
         for const in config.constants:
-            # mpf is not serializable so convert to string
-            const = mpf(const)
             jobs = queue_work(db, precision, algo, a_range, b_range, const, black_list, debug=debug, silent=True)
             work |= jobs
             count += 1
 
             if not silent:
-                utils.printProgressBar(count, len(config.constants), prefix='Queuing constants', suffix='          ')
+                utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='          ')
     else:
-        work = queue_work(db, precision, algo, a_range, b_range, config.polynomial_range, black_list, debug=debug, silent=silent)
+        work = queue_work(db, precision, algo, a_range, b_range, repr(config.polynomial_range), black_list, debug=debug, silent=silent)
 
     return work
 
@@ -184,9 +223,9 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
         if count % batch_size == 0:
             # We are queuing arrays of coefficients to work on
             if debug:
-                jobs.store(db, precision, algo_name, a, b, repr(poly_range), black_list)
+                jobs.store(db, precision, algo_name, a, b, poly_range, black_list)
             else:
-                job = jobs.store.delay(db, precision, algo_name, a, b, repr(poly_range), black_list)
+                job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
                 work.add(job)   # hold onto the job info
 
             if not silent:
@@ -264,9 +303,6 @@ def wait(ht, work, silent):
 
             utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='          ') # eta not working, suffix=f'ETA: {eta}')
     
-    if not silent:
-        utils.printProgressBar(total_work, total_work, suffix='          ')
-
 
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
@@ -280,14 +316,3 @@ def clean(silent):
 
     if not silent:
         print('Redis data deleted')
-
-
-def get_funcs(module):
-    result = {}
-    funcs = [fn for name,fn in inspect.getmembers(module) if inspect.isfunction(fn)]
-    for fn in funcs:
-        if hasattr(fn, 'type_id'):
-            type_id = getattr(fn, 'type_id')
-            result[type_id] = fn.__name__
-
-    return result

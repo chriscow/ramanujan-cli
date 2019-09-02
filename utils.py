@@ -1,3 +1,4 @@
+import inspect
 from algorithms import solve_polynomial
 
 # Print iterations progress
@@ -56,4 +57,14 @@ def polynomial_to_string(coeff, x):
     
     res.reverse()
     return ' + '.join(res)
-    
+
+
+def get_funcs(module):
+    result = {}
+    funcs = [fn for name,fn in inspect.getmembers(module) if inspect.isfunction(fn)]
+    for fn in funcs:
+        if hasattr(fn, 'type_id'):
+            type_id = getattr(fn, 'type_id')
+            result[type_id] = fn
+
+    return result

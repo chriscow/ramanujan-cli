@@ -7,6 +7,7 @@ import algorithms
 import config
 import data
 import postproc
+import utils
 
 import mpmath
 from mpmath import mpf
@@ -83,9 +84,10 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
 
             # store the fraction result in the hashtable along with the
             # coefficients that generated it
-            bin_range = bytes(poly_range.__repr__(), 'utf-8') # binary string representation
-            algo_data = (algo.type_id, fn.type_id, bin_range, a_coeff, b_coeff)
+            algo_data = (algo.type_id, fn.type_id, result, poly_range, a_coeff, b_coeff)
 
+            verify = reverse_solve(algo_data)
+            assert(verify == result)
 
             redis_start = datetime.now()
             db.set(result, algo_data)
@@ -97,12 +99,12 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
             redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
             # also store just the fractional part of the result
-            result = mpmath.frac(result)
-            if black_list and result in black_list or mpmath.isnan(result) or mpmath.isinf(result):
+            fractional_result = mpmath.frac(result)
+            if black_list and fractional_result in black_list or mpmath.isnan(fractional_result) or mpmath.isinf(fractional_result):
                 continue
             
             redis_start = datetime.now()
-            db.set(result, algo_data)
+            db.set(fractional_result, algo_data)
             # old_keys, cur_key = db.manipulate_key(result)
             # for key in old_keys:
             #     test.setdefault(key, []).append(repr(algo_data))
@@ -116,6 +118,28 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
 
     logger.info(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
     # return test
+
+def reverse_solve(algo_data):
+    '''
+    Takes the data we are going to store and solves it to 
+    verify we get the result back
+    '''
+    ht = data.DecimalHashTable(0)
+    algo_id, postfn_id, result, poly_range, a_coeff, b_coeff = algo_data
+
+    # mpmath.mp.dps *= 2
+
+    algos = utils.get_funcs(algorithms)
+    postprocs = utils.get_funcs(postproc)
+
+    algo = algos[algo_id]
+    post = postprocs[postfn_id]
+
+    value = algorithms.solve(a_coeff, b_coeff, poly_range, algo)
+    value = post(value)
+
+    return value
+
 
 if __name__ == '__main__':
 
