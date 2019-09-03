@@ -8,6 +8,11 @@ from datetime import datetime, timedelta
 from subprocess import Popen, DEVNULL
 from multiprocessing import cpu_count
 
+#
+# The stuff in this main.py file is just to handle command line arguments
+# and check to see if the dependent programs are running (celery worker, redis-server)
+#
+
 # ssh -i "ramanujan.pem" -L 6379:ramanujan.afnsuz.0001.usw2.cache.amazonaws.com:6379 ec2-user@ec2-52-38-8-180.us-west-2.compute.amazonaws.com
 
 @click.group()
@@ -73,12 +78,6 @@ def check_worker_status():
     Queues the 'ping' job.  If celery workers are running it will succeed.
     '''
 
-    # This doesn't work:
-    # from celery import Celery
-    # app = Celery()
-    # app.config_from_object('celeryconfig')
-    # app.control.ping(timeout=1)
-
     job_started = datetime.now()
     job = jobs.ping.delay(job_started)
 
@@ -94,6 +93,7 @@ def check_worker_status():
             'and run:',
             '',
             f'\tcelery -A jobs worker -l info --concurrency {cpu_count() - 2}'])
+
 
 
 if __name__ == '__main__':

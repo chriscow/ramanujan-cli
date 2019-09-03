@@ -7,8 +7,7 @@ from mpmath import mpf
 import config
 
 '''
-Implements a hashtable for Decimal values. This is barely an extension of the 
-dict type to support Decimal with a defined decimal accuracy as keys.
+This simply wraps calls to redis to make it look a little more like a hashtable.
 
 Some more features are supplied, such as dynamic accuracy (the stored keys' 
 accuracy may be redefined), support for serialization by dill/pickle and 

@@ -2,7 +2,7 @@ import inspect
 from algorithms import solve_polynomial
 
 # Print iterations progress
-def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 30, fill = '█'):
     """
     Call in a loop to create terminal progress bar
     @params:
@@ -20,10 +20,7 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
     filledLength = 0 if total == 0 else int(length * iteration // total)
 
     bar = fill * filledLength + '-' * (length - filledLength)
-    print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
-    # Print New Line on Complete
-    if iteration == total: 
-        print()
+    print('\r %s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
 
 
 def cont_frac_to_string(result, a_coeff, b_coeff):

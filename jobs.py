@@ -1,6 +1,7 @@
 import os
 import inspect
 import dotenv
+import itertools
 from datetime import datetime
 
 import algorithms
@@ -22,49 +23,56 @@ dotenv.load_dotenv()
 
 logger = get_task_logger(__name__)
 
-@app.task
-def add(a, b):
-    return a + b
-
-@app.task
-def ping(srctime):
-    return srctime
-
-@app.task
-def query(algo_name, a_coeffs, b_coeffs, poly_range, black_list):
-    
-    pass
 
 
 @app.task()
-def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
-    
+def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_list):
+    '''
+    This method is queued up by the master process to be executed by a Celery worker.
+
+    It calls the given algorithm with the given arguments and stores the value and
+    arguments to arrive at that value in Redis.  Then, if configured, it runs the
+    result through all the postproc.py functions to alter the result and stores
+    all those too.
+    '''
+
+    # The db number passed in indicated whether we are working on the left or right
     db = data.DecimalHashTable(db=db, accuracy=accuracy)
 
+    # Get the actual function from the name passed in
     algo = getattr(algorithms, algo_name)
 
+    # Creates a list of all combinations of coefficients
     coeff_list = zip(a_coeffs, b_coeffs)
 
-    poly_range = eval(poly_range)
+    # Get all the functions in the postproc module
+    funcs = [fn for name,fn in inspect.getmembers(postproc) if inspect.isfunction(fn)]
 
+    # Determine if we are using a constant value or a range of values for x
+    try:
+        # if it can be cast to a float, then convert it to mpf
+        float(serialized_range)
+        poly_range = mpf(serialized_range)
+    except ValueError:
+        poly_range = eval(serialized_range)
+
+    # These are just to track times for various blocks of code
     start = datetime.now()
-    
     algo_times = []
     post_times = []
     redis_times = []
+
 
     for a_coeff, b_coeff in coeff_list:
 
         # logger.debug(f'Starting {algo.__name__} {a_coeff} {b_coeff} at {datetime.now() - start}')
 
+        # Call the algorithm function
         st = datetime.now()
         value = algorithms.solve(a_coeff, b_coeff, poly_range, algo)
         algo_times.append( (datetime.now() - st).total_seconds() )
 
-
-        # get all the functions in the postproc module
-        funcs = [fn for name,fn in inspect.getmembers(postproc) if inspect.isfunction(fn)]
-
+        # Loop through all the postproc functions defined in postproc.py
         for fn in funcs:
             
             # print(f'a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
@@ -72,9 +80,19 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
 
             # run the algo value through the postproc function
             st = datetime.now()
-            result = fn(value)
+
+            # If we are configued to run the postproc functions, do so
+            # otherwise, just use the value from above and identify
+            # the postproc function as identity() type_id == 0
+            if config.run_postproc_functions:
+                result = fn(value) # run the postproc function against the value
+            else:
+                fn.type_id = 0 # identity function
+                result = value
+
             post_times.append( (datetime.now() - st).total_seconds() )
 
+            # If the result we have is in the black list, don't store it
             if black_list and result in black_list or mpmath.isnan(result) or mpmath.isinf(result):
                 continue
 
@@ -82,20 +100,16 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
             if isinstance(result, mpmath.mpc):
                 continue
 
-            # store the fraction result in the hashtable along with the
-            # coefficients that generated it
-            algo_data = (algo.type_id, fn.type_id, result, poly_range, a_coeff, b_coeff)
+            # store the result in the hashtable along with the
+            # coefficients and other arguments that generated it
+            algo_data = (algo.type_id, fn.type_id, result, serialized_range, a_coeff, b_coeff)
 
-            verify = reverse_solve(algo_data)
-            assert(verify == result)
+            # verify = reverse_solve(algo_data)
+            # assert(verify == result)
 
+            # Send the result and data to Redis
             redis_start = datetime.now()
             db.set(result, algo_data)
-            # old_keys, cur_key = db.manipulate_key(result)
-            # for key in old_keys:
-            #     db.setdefault(key, []).append(repr(algo_data))
-
-            # test.setdefault(cur_key, []).append(repr(algo_data))            
             redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
             # also store just the fractional part of the result
@@ -105,12 +119,11 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
             
             redis_start = datetime.now()
             db.set(fractional_result, algo_data)
-            # old_keys, cur_key = db.manipulate_key(result)
-            # for key in old_keys:
-            #     test.setdefault(key, []).append(repr(algo_data))
-
-            # test.setdefault(cur_key, []).append(repr(algo_data))            
             redis_times.append( (datetime.now() - redis_start).total_seconds() )
+
+            # if we aren't calling postproc functions, bail out here
+            if not config.run_postproc_functions:
+                break
 
         # logger.debug(f'Algo+Post for {algo.__name__} {a_coeff} {b_coeff} done at {datetime.now() - start}')
     
@@ -119,21 +132,29 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, poly_range, black_list):
     logger.info(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
     # return test
 
+        
+
 def reverse_solve(algo_data):
     '''
     Takes the data we are going to store and solves it to 
     verify we get the result back
     '''
     ht = data.DecimalHashTable(0)
-    algo_id, postfn_id, result, poly_range, a_coeff, b_coeff = algo_data
-
-    # mpmath.mp.dps *= 2
+    algo_id, postfn_id, result, serialized_range, a_coeff, b_coeff = algo_data
 
     algos = utils.get_funcs(algorithms)
     postprocs = utils.get_funcs(postproc)
 
     algo = algos[algo_id]
     post = postprocs[postfn_id]
+
+    try:
+        # if it can be cast to a float, then convert it to mpf
+        float(serialized_range)
+        poly_range = mpf(serialized_range)
+    except ValueError:
+        poly_range = eval(serialized_range)
+
 
     value = algorithms.solve(a_coeff, b_coeff, poly_range, algo)
     value = post(value)
@@ -143,16 +164,16 @@ def reverse_solve(algo_data):
 
 if __name__ == '__main__':
 
-    db = 15
+    db = 14 # unused database
     precision = 8
     black_list = []
 
 
     #zero
-    store(db, precision, 'continued_fraction', [(0,0,0)], [(0,0,0)], range(0,200), black_list)
+    store(db, precision, 'continued_fraction', [(0,0,0)], [(0,0,0)], '(0,200)', black_list)
 
     # phi
-    store(db, precision, 'continued_fraction',[(1,0,0)], [(1,0,0)], range(0,200), black_list)
+    store(db, precision, 'continued_fraction',[(1,0,0)], [(1,0,0)], '(0,200)', black_list)
 
     a = []
     b = []
@@ -162,8 +183,6 @@ if __name__ == '__main__':
         a.append(a_coeff)
         b.append(b_coeff)
 
-    store(db, precision, 'continued_fraction', a, b, range(0,200), black_list)
-
-
+    store(db, precision, 'continued_fraction', a, b, '(0,200)', black_list)
 
     store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list)

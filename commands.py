@@ -16,77 +16,113 @@ import postproc
 import utils
 
 
-@click.argument('filename')
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
-def search(filename, silent):
+def search(silent):
     '''
     We want to:
         - make a first pass and find all key matches between the two sides
         - with all matches, 
     '''
-    
-    ht = data.DecimalHashTable(0)
+    lhs_db = data.DecimalHashTable(db=int(os.getenv('LHS_DB')))
+    rhs_db = data.DecimalHashTable(db=int(os.getenv('RHS_DB')))
+
+    lhs_size = lhs_db.redis.dbsize()
+    rhs_size = rhs_db.redis.dbsize()
+
+    index = 0
+    spinner = '|/-\\'
+
+
+    search_db = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=int(os.getenv('SEARCH_DB')))
     postprocs = utils.get_funcs(postproc)
     algos = utils.get_funcs(algorithms)
-
     matches = set()
 
-    for key, lhs_vals, rhs_vals in key_matches(silent):
+    cur = 0
 
+    # key_matches() enumerates all the keys in the hashtable from the left hand side,
+    # and finds a match on the right hand side.  
+    for key, lhs_vals, rhs_vals in key_matches(lhs_db, rhs_db, silent):
+
+        # These are just for the progress bar
+        cur += 1
+        cur_sub = 0
+
+        # How many combinations are there we need to check? (for progress bar)
+        subtotal = len(lhs_vals) * len(rhs_vals)
+
+        # Enumerates all possible combinations of left and right
         for lhs_val, rhs_val in itertools.product(lhs_vals, rhs_vals):  
-            
+
+            # Expand the algorithm arguments etc from the data in the hashtable
+            # Underscore just means we are ignoring that entry
+            # The format of these values is:
+            #   - algorithm type_id from algorithms.py that generated the result
+            #   - postproc type_id of the function from postprocs.py that altered the result
+            #   - final calculated value
+            #   - polynomial range or constant value (depends on left or right side)
+            #   - a coefficients
+            #   - b coefficients
             _,_,lhs_result,_,_,_ = eval(lhs_val)
             _,_,rhs_result,_,_,_ = eval(rhs_val)
 
-            lhs = jobs.reverse_solve(eval(lhs_val))
-            assert(lhs == lhs_result)
+            # Check the absolute value of both sides and make sure they are the same
+            if mpmath.fabs(lhs_result) == mpmath.fabs(rhs_result):
+                matches.add((lhs_val, rhs_val))
 
-            rhs = jobs.reverse_solve(eval(rhs_val))
-            assert(rhs == rhs_result)
+            if not silent:
+                index += 1
+                cur_sub += 1
+                utils.printProgressBar(cur, lhs_size, prefix=f'{spinner[index % len(spinner)]} {key}', suffix=f'{cur_sub}/{subtotal} {cur}/{lhs_size}      ')
 
-            _, lhs_key = ht.manipulate_key(lhs)
-            _, rhs_key = ht.manipulate_key(rhs)
-            if (lhs_key != rhs_key):
-                print(f'key mismatch lhs:{lhs_key} != rhs:{rhs_key}')
-            
-            if mpmath.fabs(lhs) == mpmath.fabs(rhs):
-                matches.add( (lhs_val, rhs_val) )
 
     if not silent:
         print(f'Found {len(matches)} matches at {mpmath.mp.dps} decimal places ...')
 
-    # Matches contains the arguments where the values matched exactly
+
+    # 'matches()' contains the arguments where the values matched exactly
     # at 15 decimal places (whatever is in the config)
     #
     # Now lets try matching more decimal places
-    while len(matches) and mpmath.mp.dps < 500:
+    bigger_matches = set()
+
+    # Loop over and over, doubling the decimal precision until decimal places 
+    # exceeds 100 or until there are no more matches
+    while len(matches) and mpmath.mp.dps < 100:
         bigger_matches = set()
-        mpmath.mp.dps *= 2
-        count = 0
+        mpmath.mp.dps *= 2  # increase the decimal precision
+        count = 0 # for progress bar
+
         for lhs_val, rhs_val in matches:
-
-            # expand the polynomial range for the rhs
+            
+            # Since we want more precision, also expand the polynomial range 10x
+            # for the continued fraction (or whatever algorithm it used)
+            # for the right hand side
             rhs_algo = list(eval(rhs_val))
-            poly_range = eval(rhs_algo[3])
-            poly_range = (poly_range[0] * -10, poly_range[1] * 10)
-            rhs_algo[3] = bytes(repr(poly_range), 'utf-8')
+            poly_range = eval(rhs_algo[3]) # unpack the range
+            poly_range = (poly_range[0] * -10, poly_range[1] * 10) # expand it
+            rhs_algo[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
 
+            # solve both sides with the new precision
             lhs = jobs.reverse_solve(eval(lhs_val))
             rhs = jobs.reverse_solve(rhs_algo)
 
+            # if there is a match, save it
             if mpmath.fabs(lhs) == mpmath.fabs(rhs):
                 bigger_matches.add( (lhs_val, rhs_val) )
 
             if not silent:
                 count += 1
-                utils.printProgressBar(count, len(matches), prefix=f' Trying {mpmath.mp.dps} places', suffix='          ')
+                utils.printProgressBar(count, len(matches), prefix=f' Trying {mpmath.mp.dps} places', suffix='     ')
 
         if not silent:
             print(f'Found {len(bigger_matches)} matches at {mpmath.mp.dps} decimal places ...')
         
         matches = bigger_matches
     
+    # By the time we reach here, if there were any high-precision matches, 
+    # dump out the data to the screen
     for lhs, rhs in bigger_matches:
         lhs_algo_id, lhs_post, lhs_result, const, lhs_a_coeff, lhs_b_coeff = eval(lhs)
         rhs_algo_id, rhs_post, rhs_result, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs)
@@ -95,15 +131,14 @@ def search(filename, silent):
         print('-' * 60)
         print('')
         print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
-        print(f'RHS: {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_coeff} b:{rhs_b_coeff})) for x => poly range:{poly_range}')
+        print(f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_coeff} b:{rhs_b_coeff})) for x => poly range:{poly_range}')
         print('')
     
 
 
-
     
 
-def key_matches(silent):
+def key_matches(lhs, rhs, silent):
     '''
     Searches for keys from the lhs in the rhs.
 
@@ -111,13 +146,6 @@ def key_matches(silent):
         Three element array:
             matching key, lhs algo arguments, rhs algo arguments
     '''
-    lhs = data.DecimalHashTable(db=int(os.getenv('LHS_DB')))
-    rhs = data.DecimalHashTable(db=int(os.getenv('RHS_DB')))
-
-    lhs_size = lhs.redis.dbsize()
-    rhs_size = rhs.redis.dbsize()
-
-    cur = 0
     for key in lhs.redis.scan_iter():
 
         # *hs_vals is a list of algorithm parameters used to generate the result
@@ -125,11 +153,6 @@ def key_matches(silent):
         rhs_vals = rhs.get(key)
         if rhs_vals:
             yield (key, lhs_vals, rhs_vals)
-
-        if not silent:
-            cur += 1
-            utils.printProgressBar(cur, lhs_size)
-
 
 
 
@@ -158,19 +181,23 @@ def generate(rhs, lhs, debug, silent):
 
     work = set()
 
-    if rhs:
+    if rhs: # generate the work items for the right hand side
         jobs = _generate(config.rhs, int(os.getenv('RHS_DB')), False, debug, silent)
         wait(rhs_data, jobs, silent)
 
 
-    if lhs:
+    if lhs: # generate the work items for the left hand side
         jobs = _generate(config.lhs, int(os.getenv('LHS_DB')), True, debug, silent)
         wait(lhs_data, jobs, silent)
 
+    print()
 
 
 def _generate(side, db, use_constants, debug=False, silent=False):
-
+    '''
+    This function does the actual work of queueing the jobs to Celery for
+    processing in other processes or machines
+    '''
     precision  = config.hash_precision
     const_type = type(mpmath.e)
 
@@ -185,13 +212,18 @@ def _generate(side, db, use_constants, debug=False, silent=False):
 
     if use_constants:
         count = 0
+
+        # Loop through the list of constants in the config file.  The constant
+        # value is used for the 'polynomial range' as a single value
         for const in config.constants:
+
+            # queue_work generates several jobs based on the a and b ranges
             jobs = queue_work(db, precision, algo, a_range, b_range, const, black_list, debug=debug, silent=True)
             work |= jobs
             count += 1
 
             if not silent:
-                utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='          ')
+                utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
     else:
         work = queue_work(db, precision, algo, a_range, b_range, repr(config.polynomial_range), black_list, debug=debug, silent=silent)
 
@@ -202,11 +234,14 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
     '''
     Queues the algorithm calculations to be run and stored in the database.
     '''
+
+    # Each job will contain this many a/b coefficient pairs
     batch_size = 100
 
+    # for the progress bar
     total_work = algorithms.range_length(b_range, algorithms.range_length(a_range))
-
     count = 1
+
     a = []  # holds a subset of the coefficient a-range
     b = []  # holds a subset of the coefficient b-range
     work = set()  # set of all jobs queued up to know when we are done
@@ -218,29 +253,32 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
         b.append(b_coeff)
         count += 1
 
-
         # When the list of a's and b's are up to batch_size, queue a job
         if count % batch_size == 0:
             # We are queuing arrays of coefficients to work on
             if debug:
+                # if we are debugging, don't process this job in a separate program
+                # (keeps it synchronous and all in the same process for debugging)
                 jobs.store(db, precision, algo_name, a, b, poly_range, black_list)
             else:
+                # adding .delay after the function name queues it up to be 
+                # executed by a Celery worker in another process / machine
                 job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
                 work.add(job)   # hold onto the job info
 
             if not silent:
-                utils.printProgressBar(count, total_work, prefix=f'Queueing {count}/{total_work}', suffix='          ')
+                utils.printProgressBar(count, total_work, prefix=f'Queueing {count}/{total_work}', suffix='     ')
 
             a = []
             b = []
 
     # If there are any left over coefficients whos array was not evenly
-    # divisible by the batch_size, queue them up also
+    # divisible by the batch_size at the end, queue them up also
     if len(a):
         if debug:
-            jobs.store(db, precision, algo_name, a, b, repr(poly_range), black_list)
+            jobs.store(db, precision, algo_name, a, b, poly_range, black_list)
         else:
-            job = jobs.store.delay(db, precision, algo_name, a, b, repr(poly_range), black_list)
+            job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
             work.add(job) 
 
     return work
@@ -260,10 +298,7 @@ def wait(ht, work, silent):
     total_work = len(work)
     eta = timedelta()
 
-    # db = data.DecimalHashTable(db=db)    
-    # db = dht.DecimalHashTable(config.precision)
-
-    utils.printProgressBar(0, total_work, prefix='Waiting ...', suffix='          ')
+    utils.printProgressBar(0, total_work, prefix='Waiting ...', suffix='     ')
 
     while len(work):  # while there is still work to do ...
 
@@ -273,9 +308,6 @@ def wait(ht, work, silent):
         for job in work:
             
             if job.ready():
-                # for key, values in job.result.items():
-                #     for value in values:
-                #         ht.set(key, value)
 
                 retries = 3
                 while retries > 0:
@@ -292,27 +324,17 @@ def wait(ht, work, silent):
 
         # Removes completed jobs from work
         work = work - completed_jobs
+
+        # Wait a little bit before checking if more work has completed
         time.sleep(.1)
 
         if not silent:
 
+            # the eta calculation isn't working. Ignore this...
             if len(elapsed):
                 # work left / work done on this pass * seconds
                 avg_secs = sum(elapsed) / len(elapsed)
                 eta = timedelta(seconds = len(work) / len(elapsed) * avg_secs)
 
-            utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='          ') # eta not working, suffix=f'ETA: {eta}')
+            utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='     ') # eta not working, suffix=f'ETA: {eta}')
     
-
-@click.option('--silent', '-s', is_flag=True, default=False)
-@click.command()
-def clean(silent):
-    '''
-    Deletes all data from redis to start from scatch.
-    '''
-    for i in range(0, 16):
-        db = redis.Redis(host=os.getenv('REDIS_HOST'),  port=os.getenv('REDIS_PORT'), db=i)
-        result = db.flushdb()
-
-    if not silent:
-        print('Redis data deleted')

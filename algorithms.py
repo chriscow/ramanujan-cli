@@ -1,67 +1,11 @@
 import itertools, mpmath
 from mpmath import mpf
 
-
-def range_length(coeff_range, current=1):
-    for ar in coeff_range:
-        for r in ar:
-            current *= (r[1] - r[0])
-    
-    return current
-
-
-def coefficients(coeff_range):
-    """
-    Creates an iterator that goes through all possibilities of coeff_range.
-    """
-    return itertools.product(*[ itertools.product(*[ range(*r) for r in ra ]) for ra in coeff_range ])
-
-
-def iterate_coeff_ranges(a_array, b_array):
-
-    # coefficients() returns an iterator that covers all coefficient possibilities
-    for a_coeff in coefficients(a_array):
-        for b_coeff in coefficients(b_array):    
-            yield a_coeff[0], b_coeff[0]
-
-
-
-def solve_polynomial(coeffs, x):
-    """
-    Substitues x in the polynomial represented by the list of coeffs
-    Parameters:
-        coeffs - array of polynomial coefficients
-                 coeffs[0] + coeffs[1]*x + coeffs[2]*x^2 ...
-
-        x      - a value to substitute
-    """
-    return sum([ mpf(coeffs[j]) * mpf(x) ** j for j in range(len(coeffs))])
-
-
-def solve(a_coeff, b_coeff, poly_range, algo):
-    """
-    Simply iterates through all posibilities of coefficients and
-    runs the supplied algorithm with each value and yields the result.
-    """
-    const_type = type(mpmath.e)
-
-    try:
-        # if it can be cast to a float, then convert it to mpf
-        float(poly_range)
-        poly_range = mpf(poly_range)
-    except ValueError:
-        poly_range = eval(poly_range)
-
-    # for each coefficient combination, solve the polynomial for x 0 => depth
-    if isinstance(poly_range, mpf) or isinstance(poly_range, const_type) or isinstance(poly_range, str):
-        a_poly = solve_polynomial(a_coeff, poly_range)
-        b_poly = solve_polynomial(b_coeff, poly_range)
-    else:
-        a_poly = [solve_polynomial(a_coeff, x) for x in range(*poly_range)]
-        b_poly = [solve_polynomial(b_coeff, x) for x in range(*poly_range)]
-
-    return algo(a_poly, b_poly)
-        
+# The two main algorithms are rational_funciton for the left hand side
+# and continued_fraction for the right hand side.
+#
+# You can make more but be sure to add a type_id that is unique between
+# the other functions in this file.
 
 def rational_function(a, b):
     """
@@ -69,6 +13,7 @@ def rational_function(a, b):
     return mpf(a / b) if b != 0 else mpmath.nan 
 
 rational_function.type_id = 2
+
 
 def continued_fraction(a, b=None):
     """
@@ -114,6 +59,73 @@ def continued_fraction(a, b=None):
 
 continued_fraction.type_id = 1
 
+
+#
+# The rest of the functions below are just helpers
+#
+
+def range_length(coeff_range, current=1):
+    '''
+    Given a tuple to be used as a parameter for range(), this function returns
+    how many elements range() will generate.
+    '''
+    for ar in coeff_range:
+        for r in ar:
+            current *= (r[1] - r[0])
+    
+    return current
+
+
+def coefficients(coeff_range):
+    '''
+    Creates an iterator that goes through all possibilities of coeff_range.
+    '''
+    return itertools.product(*[ itertools.product(*[ range(*r) for r in ra ]) for ra in coeff_range ])
+
+
+def iterate_coeff_ranges(a_array, b_array):
+
+    # coefficients() returns an iterator that covers all coefficient possibilities
+    for a_coeff in coefficients(a_array):
+        for b_coeff in coefficients(b_array):    
+            yield a_coeff[0], b_coeff[0]
+
+
+
+def solve_polynomial(coeffs, x):
+    """
+    Substitues x in the polynomial represented by the list of coeffs
+    Parameters:
+        coeffs - array of polynomial coefficients
+                 coeffs[0] + coeffs[1]*x + coeffs[2]*x^2 ...
+
+        x      - a value to substitute
+    """
+    return sum([ mpf(coeffs[j]) * mpf(x) ** j for j in range(len(coeffs))])
+
+
+def solve(a_coeff, b_coeff, poly_range, algo):
+    """
+    Simply iterates through all posibilities of coefficients and
+    runs the supplied algorithm with each value and yields the result.
+    """
+    const_type = type(mpmath.e)
+
+    # for each coefficient combination, solve the polynomial for x 0 => depth
+    if isinstance(poly_range, mpf) or isinstance(poly_range, const_type):
+        constant_value = poly_range # just readability
+
+        a_poly = solve_polynomial(a_coeff, constant_value)
+        b_poly = solve_polynomial(b_coeff, constant_value)
+    else:
+        a_poly = [solve_polynomial(a_coeff, x) for x in range(*poly_range)]
+        b_poly = [solve_polynomial(b_coeff, x) for x in range(*poly_range)]
+
+    # a_poly and b_poly are list of polynomial results
+    # Call the algorithm specified with the values (continued fraction / rational function etc.)
+    return algo(a_poly, b_poly)
+        
+
 if __name__ == "__main__":
     #
     # just run this file to run the smoke tests:
@@ -128,19 +140,16 @@ if __name__ == "__main__":
     assert (res == 86), f'Expected {res} == 86'
 
     # phi
-    res = solve((1,0,0), (1,0,0), range(0,200), continued_fraction)
+    res = solve((1,0,0), (1,0,0), (0,200), continued_fraction)
     assert(res == mpmath.phi)
 
     # e
-    res = solve((3,1,0), (0,-1,0), range(0,200), continued_fraction)
+    res = solve((3,1,0), (0,-1,0), (0,200), continued_fraction)
     assert(res == mpmath.e)
 
     # rational function for e
     res = solve((0,1,0), (1,0,0), mpmath.e, rational_function)
     assert(res == mpmath.e)
-
-    res = solve((0,1,0), (1,0,0), str(mpmath.e), rational_function)
-    assert(str(res)[:10] == str(mpf(mpmath.e))[:10])
 
     coeff_iter = coefficients([[ [-4,4], [-3,3], [-2,2] ]])
     res = sum([solve_polynomial(coeff[0], 7) for coeff in coeff_iter])
