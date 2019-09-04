@@ -184,7 +184,7 @@ def check_match(self, dps, lhs_val, rhs_val):
             return (lhs_val, rhs_val)
         else:
             return None
-    except Exception e:
+    except e:
         logger.warning(e)
         logger.warning(f'Retrying task in {2 ** self.request.retries}')
         self.retry(countdown= 2 ** self.request.retries)
