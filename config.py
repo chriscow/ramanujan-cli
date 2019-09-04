@@ -32,7 +32,7 @@ constants = ['mpmath.phi', 'mpmath.e','mpmath.euler', 'mpmath.degree', 'mpmath.c
 
 
 # Ignore lhs results that equal these values
-lhs.black_list = (-2, -1, 0, 1, 2)
+lhs.black_list = (-2, -1, -.5, 0, .5, 1, 2)
 
 lhs.algorithm = algorithms.rational_function 
 
@@ -77,7 +77,7 @@ rhs.algorithm = algorithms.continued_fraction
 
 # If the algorithm (or postproc functions) results in any of these values, 
 # don't store it
-rhs.black_list = (-2, -1, 0, 1, 2)
+rhs.black_list = (-2, -1, -.5, 0, .5, 1, 2)
 
 #
 #                    C   +  Bx   + Ax^2

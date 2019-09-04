@@ -177,8 +177,8 @@ def check_match(lhs_val, rhs_val):
     rhs_algo[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
 
     # solve both sides with the new precision
-    lhs = mpmath.fabs(jobs.reverse_solve(eval(lhs_val)))
-    rhs = mpmath.fabs(jobs.reverse_solve(rhs_algo))
+    lhs = mpmath.fabs(reverse_solve(eval(lhs_val)))
+    rhs = mpmath.fabs(reverse_solve(rhs_algo))
 
     # if there is a match, save it
     if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
