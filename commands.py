@@ -83,6 +83,7 @@ def search(silent):
 
 
     if not silent:
+        print()
         print(f'Found {len(matches)} matches at {mpmath.mp.dps} decimal places ...')
 
 
@@ -99,41 +100,41 @@ def search(silent):
         mpmath.mp.dps *= 2  # increase the decimal precision
         count = 0 # for progress bar
 
-        work = []
+        work = set()
 
         for lhs_val, rhs_val in matches:
             
             # # Since we want more precision, also expand the polynomial range 10x
             # # for the continued fraction (or whatever algorithm it used)
             # # for the right hand side
-            # rhs_algo = list(eval(rhs_val))
-            # poly_range = eval(rhs_algo[3]) # unpack the range
-            # poly_range = (poly_range[0] * -10, poly_range[1] * 10) # expand it
-            # rhs_algo[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
+            lhs_val = eval(lhs_val)
+            rhs_val = list(eval(rhs_val))
+            poly_range = eval(rhs_val[3]) # unpack the range
+            poly_range = (poly_range[0] * -10, poly_range[1] * 10) # expand it
+            rhs_val[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
 
             # # solve both sides with the new precision
             # lhs = mpmath.fabs(jobs.reverse_solve(eval(lhs_val)))
             # rhs = mpmath.fabs(jobs.reverse_solve(rhs_algo))
 
-            # # if there is a match, save it
-            # if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
-            #     bigger_matches.add( (lhs_val, rhs_val) )
-            job = jobs.check_match(lhs_val, rhs_val)
-            work.append(job)
+            
+            job = jobs.check_match.delay(mpmath.mp.dps, repr(lhs_val), repr(rhs_val))
+            work.add(job)
 
             if not silent:
                 count += 1
                 utils.printProgressBar(count, len(matches), prefix=f' Queueing {mpmath.mp.dps} places', suffix='     ')
 
-        wait(work)
+        results = wait(work, silent)
 
-        for job in work:
-            if job.results is None:
+        for result in results:
+            if result is None:
                 continue
             
-            bigger_matches.add( (lhs_val, rhs_val) )
+            bigger_matches.add( (result[0], result[1]) )
             
         if not silent:
+            print()
             print(f'Found {len(bigger_matches)} matches at {mpmath.mp.dps} decimal places ...')
         
         matches = bigger_matches
@@ -158,7 +159,10 @@ def search(silent):
             if rhs_post == 0: #identity
                 post = ''
 
-            print(f'LHS: {post} {numerator} / {denominator}')
+            if denominator != '1':
+                print(f'LHS: {post} {numerator} / {denominator}')
+            else:
+                print(f'LHS: {post} {numerator}')
         else:
             print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
 
@@ -222,12 +226,12 @@ def generate(rhs, lhs, debug, silent):
 
     if rhs: # generate the work items for the right hand side
         jobs = _generate(config.rhs, int(os.getenv('RHS_DB')), False, debug, silent)
-        wait(rhs_data, jobs, silent)
+        wait(jobs, silent)
 
 
     if lhs: # generate the work items for the left hand side
         jobs = _generate(config.lhs, int(os.getenv('LHS_DB')), True, debug, silent)
-        wait(lhs_data, jobs, silent)
+        wait(jobs, silent)
 
     print()
 
@@ -323,7 +327,7 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
     return work
 
 
-def wait(ht, work, silent):
+def wait(work, silent):
     '''
     Waits on a set of celery job objects to complete. The caller is responsible
     for calling forget() on the result to remove it from the backend.
@@ -339,6 +343,8 @@ def wait(ht, work, silent):
 
     utils.printProgressBar(0, total_work, prefix='Waiting ...', suffix='     ')
 
+    results = []
+
     while len(work):  # while there is still work to do ...
 
         completed_jobs = set()  # hold completed jobs done in this loop pass
@@ -347,7 +353,7 @@ def wait(ht, work, silent):
         for job in work:
             
             if job.ready():
-
+                results.append(job.result)
                 retries = 3
                 while retries > 0:
                     try:
@@ -376,4 +382,6 @@ def wait(ht, work, silent):
                 eta = timedelta(seconds = len(work) / len(elapsed) * avg_secs)
 
             utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='     ') # eta not working, suffix=f'ETA: {eta}')
+    
+    return results
     

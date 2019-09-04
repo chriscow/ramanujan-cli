@@ -144,6 +144,10 @@ def reverse_solve(algo_data):
     verify we get the result back
     '''
     ht = data.DecimalHashTable(0)
+
+    if isinstance(algo_data, str) or isinstance(algo_data, bytes):
+        raise Exception('You forgot to unpack algo_data')
+
     algo_id, postfn_id, result, serialized_range, a_coeff, b_coeff = algo_data
 
     algos = utils.get_funcs(algorithms)
@@ -166,19 +170,13 @@ def reverse_solve(algo_data):
     return value
 
 @app.task()
-def check_match(lhs_val, rhs_val):
-    logger.info(f'Checking for match at {mpmath.mp.dps} places ...')
-    # Since we want more precision, also expand the polynomial range 10x
-    # for the continued fraction (or whatever algorithm it used)
-    # for the right hand side
-    rhs_algo = list(eval(rhs_val))
-    poly_range = eval(rhs_algo[3]) # unpack the range
-    poly_range = (poly_range[0] * -10, poly_range[1] * 10) # expand it
-    rhs_algo[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
+def check_match(dps, lhs_val, rhs_val):
+
+    mpmath.mp.dps = dps
 
     # solve both sides with the new precision
     lhs = mpmath.fabs(reverse_solve(eval(lhs_val)))
-    rhs = mpmath.fabs(reverse_solve(rhs_algo))
+    rhs = mpmath.fabs(reverse_solve(eval(rhs_val)))
 
     # if there is a match, save it
     if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
