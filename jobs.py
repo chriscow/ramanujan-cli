@@ -169,20 +169,25 @@ def reverse_solve(algo_data):
 
     return value
 
-@app.task()
-def check_match(dps, lhs_val, rhs_val):
+@app.task(bind=True, max_retries=10)
+def check_match(self, dps, lhs_val, rhs_val):
+    try:
 
-    mpmath.mp.dps = dps
+        mpmath.mp.dps = dps
 
-    # solve both sides with the new precision
-    lhs = mpmath.fabs(reverse_solve(eval(lhs_val)))
-    rhs = mpmath.fabs(reverse_solve(eval(rhs_val)))
+        # solve both sides with the new precision
+        lhs = mpmath.fabs(reverse_solve(eval(lhs_val)))
+        rhs = mpmath.fabs(reverse_solve(eval(rhs_val)))
 
-    # if there is a match, save it
-    if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
-        return (lhs_val, rhs_val)
-    else:
-        return None
+        # if there is a match, save it
+        if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
+            return (lhs_val, rhs_val)
+        else:
+            return None
+    except Exception e:
+        logger.warning(e)
+        logger.warning(f'Retrying task in {2 ** self.request.retries}')
+        self.retry(countdown= 2 ** self.request.retries)
 
 if __name__ == '__main__':
 

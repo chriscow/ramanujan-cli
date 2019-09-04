@@ -2,6 +2,14 @@ import inspect
 from algorithms import solve_polynomial, solve, continued_fraction
 import mpmath
 from mpmath import mpf
+
+const_map = {
+    mpf(mpmath.phi):'Φ',
+    mpf(mpmath.e):'e',
+    mpf(mpmath.euler):'ℇ',
+    mpf(mpmath.pi):'π'
+}
+
 # Print iterations progress
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 30, fill = '█'):
     """
@@ -45,13 +53,6 @@ def cont_frac_to_string(a_coeff, b_coeff, result=None):
             p(b_coeff, 1), p(b_coeff, 2), p(b_coeff, 3), p(b_coeff, 4))
 
 def polynomial_to_string(coeff, x):
-
-    const_map = {
-        mpf(mpmath.phi):'Φ',
-        mpf(mpmath.e):'e',
-        mpf(mpmath.euler):'ℇ',
-        mpf(mpmath.pi):'π'
-    }
 
     res = []
 
