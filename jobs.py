@@ -165,6 +165,26 @@ def reverse_solve(algo_data):
 
     return value
 
+@app.task()
+def check_match(lhs_val, rhs_val):
+    logger.info(f'Checking for match at {mpmath.mp.dps} places ...')
+    # Since we want more precision, also expand the polynomial range 10x
+    # for the continued fraction (or whatever algorithm it used)
+    # for the right hand side
+    rhs_algo = list(eval(rhs_val))
+    poly_range = eval(rhs_algo[3]) # unpack the range
+    poly_range = (poly_range[0] * -10, poly_range[1] * 10) # expand it
+    rhs_algo[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
+
+    # solve both sides with the new precision
+    lhs = mpmath.fabs(jobs.reverse_solve(eval(lhs_val)))
+    rhs = mpmath.fabs(jobs.reverse_solve(rhs_algo))
+
+    # if there is a match, save it
+    if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
+        return (lhs_val, rhs_val)
+    else:
+        return None
 
 if __name__ == '__main__':
 

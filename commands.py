@@ -94,33 +94,45 @@ def search(silent):
 
     # Loop over and over, doubling the decimal precision until decimal places 
     # exceeds 100 or until there are no more matches
-    while len(matches) and mpmath.mp.dps < 100:
+    while len(matches) and mpmath.mp.dps < 50:
         bigger_matches = set()
         mpmath.mp.dps *= 2  # increase the decimal precision
         count = 0 # for progress bar
 
+        work = []
+
         for lhs_val, rhs_val in matches:
             
-            # Since we want more precision, also expand the polynomial range 10x
-            # for the continued fraction (or whatever algorithm it used)
-            # for the right hand side
-            rhs_algo = list(eval(rhs_val))
-            poly_range = eval(rhs_algo[3]) # unpack the range
-            poly_range = (poly_range[0] * -10, poly_range[1] * 10) # expand it
-            rhs_algo[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
+            # # Since we want more precision, also expand the polynomial range 10x
+            # # for the continued fraction (or whatever algorithm it used)
+            # # for the right hand side
+            # rhs_algo = list(eval(rhs_val))
+            # poly_range = eval(rhs_algo[3]) # unpack the range
+            # poly_range = (poly_range[0] * -10, poly_range[1] * 10) # expand it
+            # rhs_algo[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
 
-            # solve both sides with the new precision
-            lhs = mpmath.fabs(jobs.reverse_solve(eval(lhs_val)))
-            rhs = mpmath.fabs(jobs.reverse_solve(rhs_algo))
+            # # solve both sides with the new precision
+            # lhs = mpmath.fabs(jobs.reverse_solve(eval(lhs_val)))
+            # rhs = mpmath.fabs(jobs.reverse_solve(rhs_algo))
 
-            # if there is a match, save it
-            if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
-                bigger_matches.add( (lhs_val, rhs_val) )
+            # # if there is a match, save it
+            # if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
+            #     bigger_matches.add( (lhs_val, rhs_val) )
+            job = jobs.check_match(lhs_val, rhs_val)
+            work.append(job)
 
             if not silent:
                 count += 1
-                utils.printProgressBar(count, len(matches), prefix=f' Trying {mpmath.mp.dps} places', suffix='     ')
+                utils.printProgressBar(count, len(matches), prefix=f' Queueing {mpmath.mp.dps} places', suffix='     ')
 
+        wait(work)
+
+        for job in work:
+            if job.results is None:
+                continue
+            
+            bigger_matches.add( (lhs_val, rhs_val) )
+            
         if not silent:
             print(f'Found {len(bigger_matches)} matches at {mpmath.mp.dps} decimal places ...')
         
