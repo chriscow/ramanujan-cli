@@ -37,10 +37,10 @@ def continued_fraction(a, b=None):
     if b is None:
         b = [1] * (len(a)-1)
     elif len(a) == len(b):
-        # if the first element of b[] is zero, it wipes out everything else
+
         if b[0] == 0:
             b = b[1:]
-    
+
     if len(a) == len(b) + 1:
         res = a[-1]
         a = a[:-1]
@@ -52,7 +52,7 @@ def continued_fraction(a, b=None):
 
         if 0 == res:
             break
-            
+        
         res = a_val + b_val / res
 
     return mpf(res)

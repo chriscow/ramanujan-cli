@@ -1,6 +1,7 @@
 import inspect
-from algorithms import solve_polynomial
-
+from algorithms import solve_polynomial, solve, continued_fraction
+import mpmath
+from mpmath import mpf
 # Print iterations progress
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 30, fill = '█'):
     """
@@ -23,9 +24,12 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
     print('\r %s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
 
 
-def cont_frac_to_string(result, a_coeff, b_coeff):
+def cont_frac_to_string(a_coeff, b_coeff, result=None):
 
     p = solve_polynomial
+
+    if result is None:
+        result = solve(a_coeff, b_coeff, (0,201), continued_fraction)
 
     return """
                     {5}
@@ -42,18 +46,42 @@ def cont_frac_to_string(result, a_coeff, b_coeff):
 
 def polynomial_to_string(coeff, x):
 
-    res = ['' for i in range(len(coeff))]
+    const_map = {
+        mpf(mpmath.phi):'Φ',
+        mpf(mpmath.e):'e',
+        mpf(mpmath.euler):'ℇ',
+        mpf(mpmath.pi):'π'
+    }
+
+    res = []
+
+    if x in const_map:
+        x = const_map[x]
+    else:
+        x = f'({x})'
 
     for order in range(len(coeff)):
-        res[order] = f'{coeff[order]}'
-        if order > 0:
-            if order == 1:
-                res[order] += f'({x})'
-            else:
-                res[order] += f'({x})^{order}'
-    
+        if coeff[order] == 0:
+            continue
+
+        if order == 0:
+            res.append(f'{coeff[order]}')
+        elif order == 1:
+            res.append(f'{x}')
+        
+        elif order == 2:
+            res.append(f'{coeff[order]}{x}²')
+        elif order == 3:
+            res.append(f'{coeff[order]}{x}³')
+        else:
+            res.append(f'{coeff[order]}{x}^{order}')
+
+
+
     res.reverse()
-    return ' + '.join(res)
+    result = ' + '.join(filter(None, res))
+    result = result.replace(' + -', ' - ')
+    return result
 
 
 def get_funcs(module):
@@ -65,3 +93,28 @@ def get_funcs(module):
             result[type_id] = fn
 
     return result
+
+if __name__ == '__main__':
+
+    s = polynomial_to_string( (0,0,0), mpf(mpmath.e))
+    print(s)
+    assert(s == '')
+
+    s = polynomial_to_string( (1,0,0), mpf(mpmath.e))
+    print(s)
+
+    s = polynomial_to_string( (1,1,0), mpf(mpmath.e))
+    print(s)
+
+    s = polynomial_to_string( (-1,1,0), mpf(mpmath.e))
+    print(s)
+
+    s = polynomial_to_string( (-1,3,-2), mpf(mpmath.e))
+    print(s)
+
+    s = polynomial_to_string( (-7,-3,2,-9), mpf(mpmath.phi))
+    print(s)
+
+    numerator = polynomial_to_string( (0,1,0), mpf(mpmath.e))
+    denominator = polynomial_to_string( (-2,1,0), mpf(mpmath.e))
+    print(f'{numerator} / {denominator}')

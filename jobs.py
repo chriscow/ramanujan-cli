@@ -23,7 +23,9 @@ dotenv.load_dotenv()
 
 logger = get_task_logger(__name__)
 
-
+@app.task()
+def ping(timestamp):
+    return timestamp
 
 @app.task()
 def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_list):
@@ -70,6 +72,8 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
         # Call the algorithm function
         st = datetime.now()
         value = algorithms.solve(a_coeff, b_coeff, poly_range, algo)
+        
+
         algo_times.append( (datetime.now() - st).total_seconds() )
 
         # Loop through all the postproc functions defined in postproc.py

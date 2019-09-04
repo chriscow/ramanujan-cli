@@ -68,8 +68,13 @@ def search(silent):
             _,_,rhs_result,_,_,_ = eval(rhs_val)
 
             # Check the absolute value of both sides and make sure they are the same
-            if mpmath.fabs(lhs_result) == mpmath.fabs(rhs_result):
-                matches.add((lhs_val, rhs_val))
+            # if mpmath.fabs(lhs_result)[:8] == mpmath.fabs(rhs_result):
+            #     matches.add((lhs_val, rhs_val))
+            lhs_result = mpmath.fabs(lhs_result)
+            rhs_result = mpmath.fabs(rhs_result)
+
+            if str(lhs_result)[:mpmath.mp.dps - 2] == str(rhs_result)[:mpmath.mp.dps - 2]:
+                matches.add( (lhs_val, rhs_val) )
 
             if not silent:
                 index += 1
@@ -105,11 +110,11 @@ def search(silent):
             rhs_algo[3] = bytes(repr(poly_range), 'utf-8') # re-pack the range
 
             # solve both sides with the new precision
-            lhs = jobs.reverse_solve(eval(lhs_val))
-            rhs = jobs.reverse_solve(rhs_algo)
+            lhs = mpmath.fabs(jobs.reverse_solve(eval(lhs_val)))
+            rhs = mpmath.fabs(jobs.reverse_solve(rhs_algo))
 
             # if there is a match, save it
-            if mpmath.fabs(lhs) == mpmath.fabs(rhs):
+            if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
                 bigger_matches.add( (lhs_val, rhs_val) )
 
             if not silent:
@@ -130,8 +135,30 @@ def search(silent):
         print('')
         print('-' * 60)
         print('')
-        print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
-        print(f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_coeff} b:{rhs_b_coeff})) for x => poly range:{poly_range}')
+
+        #
+        # output the fancy version for known functions
+        #
+        if lhs_algo_id == 2: # rational_function
+            numerator = utils.polynomial_to_string(lhs_a_coeff, eval(const))
+            denominator = utils.polynomial_to_string(lhs_b_coeff, eval(const))
+            post = postprocs[rhs_post].__name__ + '(x) <== '
+            if rhs_post == 0: #identity
+                post = ''
+
+            print(f'LHS: {post} {numerator} / {denominator}')
+        else:
+            print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
+
+        if rhs_algo_id == 1: # continued fraction
+            cont_frac = utils.cont_frac_to_string(rhs_a_coeff, rhs_b_coeff, rhs_result)
+            post = postprocs[rhs_post].__name__ + '(x) <== '
+            if rhs_post == 0: #identity
+                post = ''
+
+            print(f'RHS: {post} {cont_frac}')
+        else:
+            print(f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_coeff} b:{rhs_b_coeff})) for x => poly range:{poly_range}')
         print('')
     
 
