@@ -27,6 +27,7 @@ flower = "*"
 dill = "*"
 "boto3" = "*"
 supervisor = "*"
+rq-dashboard = "*"
 
 [requires]
 python_version = "3.7"

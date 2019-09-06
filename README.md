@@ -15,6 +15,10 @@ To stop the services, in another terminal window run:
 
 `docker-compose down`
 
+If you update the code that the workers depend on, such as algorithms.py or jobs.py
+you will need to restart the services with:
+
+`docker-compose restart`
 
 ## Getting a local python environment shell
 `docker run -ti --rm -v $(pwd):/usr/share/src --expose 6379 --network ramanujan-cli_default ramanujan:latest /bin/bash`

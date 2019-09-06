@@ -6,6 +6,7 @@ import dotenv
 
 from redis import Redis
 from rq import Queue
+from rq.job import JobStatus
 
 import mpmath
 from mpmath import mpf
@@ -17,7 +18,20 @@ import jobs
 import postproc
 import utils
 
+@click.command()
+def status():
+    redis_conn = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
+    q = Queue(connection=redis_conn)
 
+    count = q.count
+    total = count
+
+    while count > 0:
+        utils.printProgressBar(total - count, total, prefix=f'Processing {count} of {total}', suffix='          ')
+        time.sleep(.1)
+        count = q.count
+
+        
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
 def search(silent):
@@ -36,7 +50,6 @@ def search(silent):
     spinner = '|/-\\'
 
 
-    search_db = Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=int(os.getenv('SEARCH_DB')))
     postprocs = utils.get_funcs(postproc)
     algos = utils.get_funcs(algorithms)
     matches = set()
@@ -236,9 +249,6 @@ def generate(rhs, lhs, debug, silent):
         rhs = True
         lhs = True
 
-    lhs_data = data.DecimalHashTable(db=int(os.getenv('LHS_DB')))
-    rhs_data = data.DecimalHashTable(db=int(os.getenv('RHS_DB')))
-
     work = set()
 
     if rhs: # generate the work items for the right hand side
@@ -306,8 +316,8 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
     b = []  # holds a subset of the coefficient b-range
     work = set()  # set of all jobs queued up to know when we are done
 
-    redis_conn = Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=os.getenv('WORK_QUEUE_DB'))
-    q = Queue('job_queue', connection=redis_conn)
+    redis_conn = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
+    q = Queue(connection=redis_conn)
 
     # Loop through all coefficient possibilities
     for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
@@ -327,8 +337,11 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
                 # adding .delay after the function name queues it up to be 
                 # executed by a Celery worker in another process / machine
                 
-                # job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
-                job = q.enqueue(jobs.store, db, precision, algo_name, a, b, poly_range, black_list)
+                if config.use_celery:
+                    job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
+                else:
+                    # use rq
+                    job = q.enqueue(jobs.store, db, precision, algo_name, a, b, poly_range, black_list)
                 
                 work.add(job)   # hold onto the job info
 
@@ -344,7 +357,12 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
         if debug:
             jobs.store(db, precision, algo_name, a, b, poly_range, black_list)
         else:
-            job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
+            if config.use_celery:
+                job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
+            else:
+                # use rq
+                job = q.enqueue(jobs.store, db, precision, algo_name, a, b, poly_range, black_list)
+                
             work.add(job) 
 
     return work
@@ -376,22 +394,31 @@ def wait(work, silent):
 
         for job in work:
             
-            if job.ready():
-                if job.status == 'FAILED':
-                    failed.add(job)
-                elif job.status == 'SUCCESS':
+            if config.use_celery:
+                if job.ready():
+                    if job.status == 'FAILED':
+                        failed.add(job)
+                    elif job.status == 'SUCCESS':
+                        results.append(job.result)
+
+                        retries = 3
+                        while retries > 0:
+                            try:
+                                job.forget()
+                                break
+                            except redis.exceptions.ConnectionError:
+                                retries -= 1
+
+                    completed_jobs.add(job)
+            else:
+                # rq
+                if job.get_status() == JobStatus.FINISHED:
                     results.append(job.result)
+                    completed_jobs.add(job)
+                elif job.get_status() == JobStatus.FAILED:
+                    failed.add(job)
 
-                    retries = 3
-                    while retries > 0:
-                        try:
-                            job.forget()
-                            break
-                        except redis.exceptions.ConnectionError:
-                            retries -= 1
 
-                completed_jobs.add(job)
-                continue
             
         # print(f'completed:{len(completed_jobs)} failed:{len(failed_jobs)}')
 

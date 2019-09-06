@@ -2,6 +2,8 @@ import algorithms
 import mpmath
 from mpmath import mpf
 
+use_celery=False
+
 # set the decimal precision (not hashtable precision)
 mpmath.mp.dps = 15  # 15 decimal places is the default for mpmath anyway but you can change it here
 
@@ -83,12 +85,12 @@ rhs.black_list = (-2, -1, 0, 1, 2)
 #                    C   +  Bx   + Ax^2
 #
 
-rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]] # first range is -2,4 so it finds e
-rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
+# rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]] # first range is -2,4 so it finds e
+# rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
 
 # Slow, especially with postproc fn()'s called
-# rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
-# rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
+rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
+rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
 
 # Finds e / (e - 2)
 # rhs.a_range = [[ [4,5], [1,2], [0,1] ]]

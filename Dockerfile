@@ -27,9 +27,9 @@ RUN apt-get -q update >/dev/null \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
 
-RUN mkdir /app
-COPY . /app
-WORKDIR /app
+RUN mkdir /ramanujan-cli
+COPY . /ramanujan-cli
+WORKDIR /ramanujan-cli
 
 RUN pip install pipenv
 RUN pipenv install --system --deploy --ignore-pipfile
