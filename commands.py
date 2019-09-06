@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 import click
 import inspect
 import dotenv
-import redis
+
+from redis import Redis
+from rq import Queue
 
 import mpmath
 from mpmath import mpf
@@ -34,7 +36,7 @@ def search(silent):
     spinner = '|/-\\'
 
 
-    search_db = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=int(os.getenv('SEARCH_DB')))
+    search_db = Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=int(os.getenv('SEARCH_DB')))
     postprocs = utils.get_funcs(postproc)
     algos = utils.get_funcs(algorithms)
     matches = set()
@@ -75,7 +77,11 @@ def search(silent):
 
             if str(lhs_result)[:mpmath.mp.dps - 2] == str(rhs_result)[:mpmath.mp.dps - 2]:
                 matches.add( (lhs_val, rhs_val) )
-
+            else:
+                pass
+                # They don't match when we have only added the fractional part
+                # '0.33333333333'  != '3.33333333333'
+                
             if not silent:
                 index += 1
                 cur_sub += 1
@@ -125,6 +131,16 @@ def search(silent):
                 count += 1
                 utils.printProgressBar(count, len(matches), prefix=f' Queueing {mpmath.mp.dps} places', suffix='     ')
 
+            if len(work) > 10000:
+                results = wait(work, silent)
+                work = set()
+
+                for result in results:
+                    if result is None:
+                        continue
+                    
+                    bigger_matches.add( (result[0], result[1]) )
+
         results = wait(work, silent)
 
         for result in results:
@@ -141,6 +157,7 @@ def search(silent):
     
     # By the time we reach here, if there were any high-precision matches, 
     # dump out the data to the screen
+    mpmath.mp.dps = 15 # back to default
     for lhs, rhs in bigger_matches:
         lhs_algo_id, lhs_post, lhs_result, const, lhs_a_coeff, lhs_b_coeff = eval(lhs)
         rhs_algo_id, rhs_post, rhs_result, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs)
@@ -289,6 +306,9 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
     b = []  # holds a subset of the coefficient b-range
     work = set()  # set of all jobs queued up to know when we are done
 
+    redis_conn = Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=os.getenv('WORK_QUEUE_DB'))
+    q = Queue('job_queue', connection=redis_conn)
+
     # Loop through all coefficient possibilities
     for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
 
@@ -306,7 +326,10 @@ def queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_lis
             else:
                 # adding .delay after the function name queues it up to be 
                 # executed by a Celery worker in another process / machine
-                job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
+                
+                # job = jobs.store.delay(db, precision, algo_name, a, b, poly_range, black_list)
+                job = q.enqueue(jobs.store, db, precision, algo_name, a, b, poly_range, black_list)
+                
                 work.add(job)   # hold onto the job info
 
             if not silent:
@@ -344,6 +367,7 @@ def wait(work, silent):
     utils.printProgressBar(0, total_work, prefix='Waiting ...', suffix='     ')
 
     results = []
+    failed = set()
 
     while len(work):  # while there is still work to do ...
 
@@ -353,14 +377,18 @@ def wait(work, silent):
         for job in work:
             
             if job.ready():
-                results.append(job.result)
-                retries = 3
-                while retries > 0:
-                    try:
-                        job.forget()
-                        break
-                    except redis.exceptions.ConnectionError:
-                        retries -= 1
+                if job.status == 'FAILED':
+                    failed.add(job)
+                elif job.status == 'SUCCESS':
+                    results.append(job.result)
+
+                    retries = 3
+                    while retries > 0:
+                        try:
+                            job.forget()
+                            break
+                        except redis.exceptions.ConnectionError:
+                            retries -= 1
 
                 completed_jobs.add(job)
                 continue
@@ -368,7 +396,7 @@ def wait(work, silent):
         # print(f'completed:{len(completed_jobs)} failed:{len(failed_jobs)}')
 
         # Removes completed jobs from work
-        work = work - completed_jobs
+        work = work - completed_jobs - failed
 
         # Wait a little bit before checking if more work has completed
         time.sleep(.1)

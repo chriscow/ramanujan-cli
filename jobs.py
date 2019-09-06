@@ -117,13 +117,13 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
             redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
             # also store just the fractional part of the result
-            fractional_result = mpmath.frac(result)
-            if black_list and fractional_result in black_list or mpmath.isnan(fractional_result) or mpmath.isinf(fractional_result):
-                continue
+            # fractional_result = mpmath.frac(result)
+            # if black_list and fractional_result in black_list or mpmath.isnan(fractional_result) or mpmath.isinf(fractional_result):
+            #     continue
             
-            redis_start = datetime.now()
-            db.set(fractional_result, algo_data)
-            redis_times.append( (datetime.now() - redis_start).total_seconds() )
+            # redis_start = datetime.now()
+            # db.set(fractional_result, algo_data)
+            # redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
             # if we aren't calling postproc functions, bail out here
             if not config.run_postproc_functions:

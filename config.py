@@ -46,15 +46,15 @@ lhs.algorithm = algorithms.rational_function
 #
 
 # This range simply searches for the constant
-lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
-lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
+# lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
+# lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
 
 # Finds  e / (e - 2)  3.7844223823546663
 # lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
 # lhs.b_range   = [[ [-2,-1], [1,2], [0,1] ]]
 
-# lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-# lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
+lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
+lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
 
 # Slow, especially with postproc fn()'s called
 # lhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
@@ -83,8 +83,8 @@ rhs.black_list = (-2, -1, 0, 1, 2)
 #                    C   +  Bx   + Ax^2
 #
 
-# rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]]
-# rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
+rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]] # first range is -2,4 so it finds e
+rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
 
 # Slow, especially with postproc fn()'s called
 # rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
@@ -107,8 +107,8 @@ rhs.black_list = (-2, -1, 0, 1, 2)
 # rhs.b_range = [[ [1,2], [0,1], [0,1] ]]
 
 # just enough range to generate BOTH phi and e
-rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
-rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
+# rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
+# rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
 
 # don't do this one yet ...  
 #       ____

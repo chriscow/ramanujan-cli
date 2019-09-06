@@ -25,6 +25,8 @@ redis = "*"
 celery = "*"
 flower = "*"
 dill = "*"
+"boto3" = "*"
+supervisor = "*"
 
 [requires]
 python_version = "3.7"
