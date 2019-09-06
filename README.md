@@ -2,6 +2,13 @@
 ## Prerequisites
 - Install [docker for OSX](https://docs.docker.com/docker-for-mac/install/)
 
+## Get into a Ramanujan shell
+Make sure you are in the project director, then run the following:
+
+`docker-compose run --rm ramanujan bash`
+
+This will start up the dependent services and give you a terminal prompt.
+
 ## Running the containers
 Simply run the following:
 

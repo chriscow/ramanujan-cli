@@ -18,7 +18,7 @@ ENV LANG=C.UTF-8
 
 
 RUN apt-get -q update >/dev/null \
-    && apt-get install -y python3 python3-dev curl build-essential git supervisor \
+    && apt-get install -y python3 python3-dev curl build-essential git supervisor redis-server \
     && curl https://bootstrap.pypa.io/get-pip.py | python3 \
     && curl https://bootstrap.pypa.io/get-pip.py | python \
     # Cleanup

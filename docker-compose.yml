@@ -40,3 +40,20 @@ services:
             - redis
         depends_on:
             - redis
+
+    ramanujan:
+        image: ramanujan
+        build:
+            context: .
+            dockerfile: Dockerfile
+        
+        links:
+            - redis
+
+        depends_on:
+            - redis
+            - workers
+            - rq-dashboard
+
+        stdin_open: true
+        tty: true
