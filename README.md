@@ -3,11 +3,26 @@
 - Install [docker for OSX](https://docs.docker.com/docker-for-mac/install/)
 
 ## Get into a Ramanujan shell
-Make sure you are in the project director, then run the following:
+Make sure you are in the project directory, then run the following:
 
 `docker-compose run --rm ramanujan bash`
 
 This will start up the dependent services and give you a terminal prompt.
+
+You are ready to go.   The rest in the doc are just notes and details.
+
+## To generate the hashtable
+
+To generate hashtable values based on the current configuration:
+
+`python main.py generate [--lhs] [--rhs]`
+
+`--lhs` and `--rhs` are optional flags to only generate the indicated side.
+
+To search for key matches in the hashtable between the left and right hand sides:
+
+`python main.py search`
+
 
 ## Running the containers
 Simply run the following:

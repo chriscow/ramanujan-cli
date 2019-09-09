@@ -1,8 +1,7 @@
-import algorithms
 import mpmath
 from mpmath import mpf
 
-use_celery=False
+import algorithms
 
 # set the decimal precision (not hashtable precision)
 mpmath.mp.dps = 15  # 15 decimal places is the default for mpmath anyway but you can change it here
@@ -48,15 +47,16 @@ lhs.algorithm = algorithms.rational_function
 #
 
 # This range simply searches for the constant
-# lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
-# lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
+lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
+lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
 
-# Finds  e / (e - 2)  3.7844223823546663
+#                     mpf('3.7844223823546663')
+# Finds  e / (e - 2)  mpf('3.7844223823546654')
 # lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
 # lhs.b_range   = [[ [-2,-1], [1,2], [0,1] ]]
 
-lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
+# lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
+# lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
 
 # Slow, especially with postproc fn()'s called
 # lhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
@@ -75,7 +75,7 @@ lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
 
 
 rhs = Config()
-rhs.algorithm = algorithms.continued_fraction
+rhs.algorithm = algorithms.continued_fraction  # or algorithms.continued_radical
 
 # If the algorithm (or postproc functions) results in any of these values, 
 # don't store it
@@ -89,10 +89,10 @@ rhs.black_list = (-2, -1, 0, 1, 2)
 # rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
 
 # Slow, especially with postproc fn()'s called
-rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
-rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
+# rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
+# rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
 
-# Finds e / (e - 2)
+# Finds e / (e - 2)  mpf('3.7844223823546654')
 # rhs.a_range = [[ [4,5], [1,2], [0,1] ]]
 # rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
 
@@ -101,8 +101,8 @@ rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
 # rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
 
 # continued fraction for e
-# rhs.a_range = [[ [3,4], [1,2], [0,1] ]] 
-# rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
+rhs.a_range = [[ [3,4], [1,2], [0,1] ]] 
+rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
 
 # continued fraction for phi
 # rhs.a_range = [[ [1,2], [0,1], [0,1] ]] 

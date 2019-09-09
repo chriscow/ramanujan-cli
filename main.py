@@ -27,6 +27,9 @@ def check_environment():
     '''
     dotenv.load_dotenv()
 
+    if os.getenv('DOCKER') is None:
+        os.environ['REDIS_HOST'] = 'localhost'
+
     if os.getenv('RHS_DB') is None:
         print('Creating default .env file ...')
         with open('.env', 'w') as env:
@@ -103,6 +106,7 @@ if __name__ == '__main__':
     # check_worker_status()
 
     cli.add_command(commands.status)
+    cli.add_command(commands.clear)
     cli.add_command(commands.generate)
     cli.add_command(commands.search)
     cli()

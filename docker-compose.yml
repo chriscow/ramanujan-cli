@@ -24,6 +24,9 @@ services:
             - redis
         depends_on:
             - redis
+
+        environment:
+            - DOCKER=1
             
     rq-dashboard:
         image: rq-dashboard
@@ -47,6 +50,9 @@ services:
             context: .
             dockerfile: Dockerfile
         
+        volumes:
+            - ./:/ramanujan-cli
+
         links:
             - redis
 
@@ -54,6 +60,9 @@ services:
             - redis
             - workers
             - rq-dashboard
+
+        environment:
+            - DOCKER=1
 
         stdin_open: true
         tty: true

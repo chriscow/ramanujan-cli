@@ -4,30 +4,12 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-rope = "*"
-moto = "*"
-rq = "*"
-msgpack-python = "*"
-click = "*"
-dill = "*"
-"boto3" = "*"
-sympy = "*"
-v = {version = "*", editable = true}
 
 [packages]
-mpmath = "*"
-pynsq = "*"
-click = "*"
 rq = "*"
-python-dotenv = "*"
-tornado = "*"
+mpmath = "*"
+click = "*"
 redis = "*"
-celery = "*"
-flower = "*"
-dill = "*"
-"boto3" = "*"
-supervisor = "*"
-rq-dashboard = "*"
 
 [requires]
 python_version = "3.7"
