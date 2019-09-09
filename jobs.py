@@ -1,33 +1,25 @@
-import os
+import os, time
 import inspect
-import dotenv
 import itertools
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from rq.job import JobStatus
 
 import algorithms
 import config
-import data
+from data.wrapper import HashtableWrapper
 import postproc
 import utils
 
 import mpmath
 from mpmath import mpf
 
-from celery import Celery
-from celery.utils.log import get_task_logger
 
-app = Celery()
-app.config_from_object('celeryconfig')
-
-dotenv.load_dotenv()
-
-logger = get_task_logger(__name__)
-
-@app.task()
 def ping(timestamp):
     return timestamp
 
-@app.task()
+
+
 def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_list):
     '''
     This method is queued up by the master process to be executed by a Celery worker.
@@ -39,7 +31,7 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
     '''
 
     # The db number passed in indicated whether we are working on the left or right
-    db = data.DecimalHashTable(db=db, accuracy=accuracy)
+    db = HashtableWrapper(db=db, accuracy=accuracy)
 
     # Get the actual function from the name passed in
     algo = getattr(algorithms, algo_name)
@@ -136,6 +128,61 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
     logger.info(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
     # return test
 
+
+
+def wait(work, silent):
+    '''
+    Waits on a set of celery job objects to complete. The caller is responsible
+    for calling forget() on the result to remove it from the backend.
+
+    Arguments:
+        work - a Python set() object containing Celery AsyncResult instances
+
+    Returns:
+        All of the jobs passed in
+    '''
+    total_work = len(work)
+    eta = timedelta()
+
+    utils.printProgressBar(0, total_work, prefix='Waiting ...', suffix='     ')
+
+    results = []
+    failed = set()
+
+    while len(work):  # while there is still work to do ...
+
+        completed_jobs = set()  # hold completed jobs done in this loop pass
+        elapsed = []  # average the elapsed time for each job
+
+        for job in work:            
+            if job.get_status() == JobStatus.FINISHED:
+                results.append(job.result)
+                completed_jobs.add(job)
+            elif job.get_status() == JobStatus.FAILED:
+                failed.add(job)
+
+
+            
+        # print(f'completed:{len(completed_jobs)} failed:{len(failed_jobs)}')
+
+        # Removes completed jobs from work
+        work = work - completed_jobs - failed
+
+        # Wait a little bit before checking if more work has completed
+        time.sleep(.1)
+
+        if not silent:
+
+            # the eta calculation isn't working. Ignore this...
+            if len(elapsed):
+                # work left / work done on this pass * seconds
+                avg_secs = sum(elapsed) / len(elapsed)
+                eta = timedelta(seconds = len(work) / len(elapsed) * avg_secs)
+
+            utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='     ') # eta not working, suffix=f'ETA: {eta}')
+    
+    return results
+    
         
 
 def reverse_solve(algo_data):
@@ -143,7 +190,7 @@ def reverse_solve(algo_data):
     Takes the data we are going to store and solves it to 
     verify we get the result back
     '''
-    ht = data.DecimalHashTable(0)
+    ht = HashtableWrapper(0)
 
     if isinstance(algo_data, str) or isinstance(algo_data, bytes):
         raise Exception('You forgot to unpack algo_data')
@@ -169,25 +216,23 @@ def reverse_solve(algo_data):
 
     return value
 
-@app.task(bind=True, max_retries=10)
+
+
 def check_match(self, dps, lhs_val, rhs_val):
-    try:
 
-        mpmath.mp.dps = dps
+    mpmath.mp.dps = dps
 
-        # solve both sides with the new precision
-        lhs = mpmath.fabs(reverse_solve(eval(lhs_val)))
-        rhs = mpmath.fabs(reverse_solve(eval(rhs_val)))
+    # solve both sides with the new precision
+    lhs = mpmath.fabs(reverse_solve(eval(lhs_val)))
+    rhs = mpmath.fabs(reverse_solve(eval(rhs_val)))
 
-        # if there is a match, save it
-        if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
-            return (lhs_val, rhs_val)
-        else:
-            return None
-    except e:
-        logger.warning(e)
-        logger.warning(f'Retrying task in {2 ** self.request.retries}')
-        self.retry(countdown= 2 ** self.request.retries)
+    # if there is a match, save it
+    if str(lhs)[:mpmath.mp.dps - 2] == str(rhs)[:mpmath.mp.dps - 2]:
+        return (lhs_val, rhs_val)
+    else:
+        return None
+
+
 
 if __name__ == '__main__':
 
@@ -213,3 +258,5 @@ if __name__ == '__main__':
     store(db, precision, 'continued_fraction', a, b, '(0,200)', black_list)
 
     store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list)
+
+    print('jobs.py passed')
