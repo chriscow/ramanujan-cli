@@ -1,5 +1,5 @@
 import itertools, mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 # The two main algorithms are rational_funciton for the left hand side
 # and continued_fraction for the right hand side.
@@ -60,9 +60,28 @@ def continued_fraction(a, b=None):
 continued_fraction.type_id = 1
 
 
-#
-# The rest of the functions below are just helpers
-#
+def continued_radical(a, b, depth=20):
+
+    root = 0
+
+    # we assume the values were solved for x = 0 to poly_range
+    # we want to reverse that so x == 0 is last
+    a.reverse()
+    b.reverse()
+
+    for i in range(depth):
+        root = a[i] + b[i] * mpmath.sqrt(root)
+
+    return root
+
+continued_radical.type_id = 2
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+#                                                                             #
+#             The rest of the functions below are just helpers                #
+#                                                                             #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 def range_length(coeff_range, current=1):
     '''
@@ -162,5 +181,11 @@ if __name__ == "__main__":
     # test that we can calculate phi
     res = continued_fraction([1] * 50)
     assert (mpmath.phi == res), f'Expected {mpmath.phi} == {res}'
+
+    a = [-6.0, -11.0, -22.0, -39.0, -62.0, -91.0, -126.0, -167.0, -214.0, -267.0, -326.0, -391.0, -462.0, -539.0, -622.0, -711.0, -806.0, -907.0, -1014.0, -1127.0]
+    b = [-1.0, -3.0, -7.0, -13.0, -21.0, -31.0, -43.0, -57.0, -73.0, -91.0, -111.0, -133.0, -157.0, -183.0, -211.0, -241.0, -273.0, -307.0, -343.0, -381.0]
+    res = continued_radical(a, b)
+    assert (mpmath.mp.dps == 15), "The assertion below assumes a 15 digit precision"
+    assert (res == mpc(real='-8.7695632738087319', imag='-5.977884644068614'))
 
     print('All algorithms tests passed')
