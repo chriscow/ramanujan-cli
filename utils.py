@@ -119,3 +119,5 @@ if __name__ == '__main__':
     numerator = polynomial_to_string( (0,1,0), mpf(mpmath.e))
     denominator = polynomial_to_string( (-2,1,0), mpf(mpmath.e))
     print(f'{numerator} / {denominator}')
+
+    print('utils.py passed')
