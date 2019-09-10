@@ -130,22 +130,21 @@ def run(max_precision=50, debug=False, silent=False):
                 if result:
                     bigger_matches.add( result )
             else:
+
                 job = q.enqueue(jobs.check_match, mpmath.mp.dps, repr(lhs_val), repr(rhs_val))
                 work.add(job)
-
-                results = jobs.wait(work, silent)
-
-                for result in results:
-                    if result is None:
-                        continue
-                    
-                    bigger_matches.add( (result[0], result[1]) )
 
             if not silent:
                 count += 1
                 utils.printProgressBar(count, len(matches), prefix=f' Queueing {mpmath.mp.dps} places', suffix='     ')
 
 
+        # Wait for the set of jobs
+        results = jobs.wait(work, silent)
+
+        for result in results:
+            if result is not None:
+                bigger_matches.add( (result[0], result[1]) )
             
         if not silent:
             print()
