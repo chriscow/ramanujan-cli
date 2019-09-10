@@ -39,18 +39,21 @@ def cont_frac_to_string(a_coeff, b_coeff, result=None):
     if result is None:
         result = solve(a_coeff, b_coeff, (0,201), continued_fraction)
 
+    a = [p(a_coeff, 0), p(a_coeff, 1), p(a_coeff, 2), p(a_coeff, 3)]
+    b = [p(b_coeff, 1), p(b_coeff, 2), p(b_coeff, 3), p(b_coeff, 4)]
+    sign = ['+' if i > 0 else '-' for i in b] # get the sign
+    b = [mpmath.fabs(i) for i in b]  # now normalize the sign for b (make it positive)
+
     return """
                     {5}
-            {1} + ------------
+            {1} {9} ------------
                         {6}
-                {2} + ------------
+                {2} {10} ------------
                             {7}              = {0}
-                    {3} + -----------
+                    {3} {11} -----------
                                 {8}
-                        {4} + -----------   
-                                [...]""".format(result, 
-            p(a_coeff, 0), p(a_coeff, 1), p(a_coeff, 2), p(a_coeff, 3),
-            p(b_coeff, 1), p(b_coeff, 2), p(b_coeff, 3), p(b_coeff, 4))
+                        {4} {12} -----------   
+                                [...]""".format(result, *a, *b, *sign)
 
 def polynomial_to_string(coeff, x):
 
@@ -80,8 +83,8 @@ def polynomial_to_string(coeff, x):
 
 
     res.reverse()
-    result = ' + '.join(filter(None, res))
-    result = result.replace(' + -', ' - ')
+    result = ' + '.join(filter(None, res))  # filter out empty / blanks
+    result = result.replace(' + -', ' - ')  # if we are adding a negative, just make it negative
     return result
 
 
@@ -97,27 +100,30 @@ def get_funcs(module):
 
 if __name__ == '__main__':
 
-    s = polynomial_to_string( (0,0,0), mpf(mpmath.e))
-    print(s)
-    assert(s == '')
+    # s = polynomial_to_string( (0,0,0), mpf(mpmath.e))
+    # print(s)
+    # assert(s == '')
 
-    s = polynomial_to_string( (1,0,0), mpf(mpmath.e))
-    print(s)
+    # s = polynomial_to_string( (1,0,0), mpf(mpmath.e))
+    # print(s)
 
-    s = polynomial_to_string( (1,1,0), mpf(mpmath.e))
-    print(s)
+    # s = polynomial_to_string( (1,1,0), mpf(mpmath.e))
+    # print(s)
 
-    s = polynomial_to_string( (-1,1,0), mpf(mpmath.e))
-    print(s)
+    # s = polynomial_to_string( (-1,1,0), mpf(mpmath.e))
+    # print(s)
 
-    s = polynomial_to_string( (-1,3,-2), mpf(mpmath.e))
-    print(s)
+    # s = polynomial_to_string( (-1,3,-2), mpf(mpmath.e))
+    # print(s)
 
-    s = polynomial_to_string( (-7,-3,2,-9), mpf(mpmath.phi))
-    print(s)
+    # s = polynomial_to_string( (-7,-3,2,-9), mpf(mpmath.phi))
+    # print(s)
 
     numerator = polynomial_to_string( (0,1,0), mpf(mpmath.e))
     denominator = polynomial_to_string( (-2,1,0), mpf(mpmath.e))
-    print(f'{numerator} / {denominator}')
+    print(f'{numerator} / {denominator} = e / (e - 2)')
 
-    print('utils.py passed')
+    s = cont_frac_to_string( (4,1,0), (0,-1,0), f'{numerator} / {denominator}' )
+    print(s)
+
+    print('Look at the output to be sure utils.py passed')
