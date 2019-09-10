@@ -40,16 +40,17 @@ def clear(queue_name):
     print(f'Work queue {q.name} cleared.')
 
 
-
+@click.argument('precision', nargs=1, default=50)
+@click.option('--debug', is_flag=True, default=False)
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
-def search(silent):
+def search(precision, debug, silent):
     '''
     We want to:
         - make a first pass and find all key matches between the two sides
         - with all matches, 
     '''
-    data.search.run(silent)
+    data.search.run(precision, debug, silent)
 
 
 

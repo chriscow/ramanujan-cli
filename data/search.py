@@ -13,7 +13,7 @@ import utils
 
 from data.wrapper import HashtableWrapper
 
-def run(silent):
+def run(max_precision=50, debug=False, silent=False):
     '''
     We want to:
         - make a first pass and find all key matches between the two sides
@@ -81,8 +81,9 @@ def run(silent):
 
 
     if not silent:
+        utils.printProgressBar(lhs_size, lhs_size, suffix=f'                          ')
         print()
-        print(f'Found {len(matches)} matches at {mpmath.mp.dps} decimal places ...')
+        print(f'Found {len(matches)} matches at {mpmath.mp.dps} decimal places')
 
 
     # 'matches()' contains the arguments where the values matched exactly
@@ -96,9 +97,15 @@ def run(silent):
 
     # Loop over and over, doubling the decimal precision until decimal places 
     # exceeds 100 or until there are no more matches
-    while len(matches) and mpmath.mp.dps < 50:
+    while len(matches) and mpmath.mp.dps < max_precision:
         bigger_matches = set()
+
         mpmath.mp.dps *= 2  # increase the decimal precision
+
+        # cap it if it exceeds the maximum requested
+        if mpmath.mp.dps > max_precision:
+            mpmath.mp.dps = max_precision
+
         count = 0 # for progress bar
 
         work = set()
@@ -118,17 +125,15 @@ def run(silent):
             # lhs = mpmath.fabs(jobs.reverse_solve(eval(lhs_val)))
             # rhs = mpmath.fabs(jobs.reverse_solve(rhs_algo))
 
-            
-            job = q.enqueue(jobs.check_match, mpmath.mp.dps, repr(lhs_val), repr(rhs_val))
-            work.add(job)
+            if debug:
+                result = jobs.check_match(mpmath.mp.dps, repr(lhs_val), repr(rhs_val))
+                if result:
+                    bigger_matches.add( result )
+            else:
+                job = q.enqueue(jobs.check_match, mpmath.mp.dps, repr(lhs_val), repr(rhs_val))
+                work.add(job)
 
-            if not silent:
-                count += 1
-                utils.printProgressBar(count, len(matches), prefix=f' Queueing {mpmath.mp.dps} places', suffix='     ')
-
-            if len(work) > 10000:
-                results = wait(work, silent)
-                work = set()
+                results = jobs.wait(work, silent)
 
                 for result in results:
                     if result is None:
@@ -136,13 +141,11 @@ def run(silent):
                     
                     bigger_matches.add( (result[0], result[1]) )
 
-        results = jobs.wait(work, silent)
+            if not silent:
+                count += 1
+                utils.printProgressBar(count, len(matches), prefix=f' Queueing {mpmath.mp.dps} places', suffix='     ')
 
-        for result in results:
-            if result is None:
-                continue
-            
-            bigger_matches.add( (result[0], result[1]) )
+
             
         if not silent:
             print()
@@ -179,7 +182,7 @@ def run(silent):
             print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
 
         if rhs_algo_id == 1: # continued fraction
-            cont_frac = utils.cont_frac_to_string(rhs_a_coeff, rhs_b_coeff, rhs_result)
+            cont_frac = utils.cont_frac_to_string(rhs_a_coeff, rhs_b_coeff)
             post = postprocs[rhs_post].__name__ + '(x) <== '
             if rhs_post == 0: #identity
                 post = ''
