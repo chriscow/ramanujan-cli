@@ -1,6 +1,7 @@
 import os, time
 import inspect
 import itertools
+import logging
 from datetime import datetime, timedelta
 
 from rq.job import JobStatus
@@ -125,7 +126,7 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
     
     elapsed = datetime.now() - start
 
-    logger.info(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
+    logging.info(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
     # return test
 
 
@@ -190,7 +191,7 @@ def reverse_solve(algo_data):
     Takes the data we are going to store and solves it to 
     verify we get the result back
     '''
-    ht = HashtableWrapper(0)
+    ht = HashtableWrapper(db=0, accuracy=config.hash_precision)
 
     if isinstance(algo_data, str) or isinstance(algo_data, bytes):
         raise Exception('You forgot to unpack algo_data')
@@ -218,8 +219,18 @@ def reverse_solve(algo_data):
 
 
 
-def check_match(self, dps, lhs_val, rhs_val):
+def check_match(dps, lhs_val, rhs_val):
+    '''
+    Takes the arguments from the left and right hand sides and reverse-solves
+    them to get values.
 
+    Then it compares the values for equivilency based on the current mpmath
+    decimal accuracy, minus two places (try to handle rounding ... not perfect)
+
+    Returns
+        If the two sides are 'equivilent', it returns them both.  Otherwise,
+        the function returns None.
+    '''
     mpmath.mp.dps = dps
 
     # solve both sides with the new precision
@@ -235,6 +246,9 @@ def check_match(self, dps, lhs_val, rhs_val):
 
 
 if __name__ == '__main__':
+
+    import main
+    main.check_environment()
 
     db = 14 # unused database
     precision = 8
