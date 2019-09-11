@@ -1,4 +1,5 @@
 import mpmath
+from mpmath import mpf, mpc
 
 def identity(x):
     return x
@@ -93,7 +94,7 @@ heptic_inverse.type_id = 13
 
 
 def sqrt(x):
-    if x < 0:
+    if isinstance(x, mpf) and x < 0:
         return mpmath.mpf('NaN')
     else:
         return mpmath.sqrt(x)
