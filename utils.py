@@ -1,7 +1,7 @@
 import inspect
 from algorithms import solve_polynomial, solve, continued_fraction
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 const_map = {
     mpf(mpmath.phi):'Φ',

@@ -1,7 +1,7 @@
 import os
 
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 from redis import Redis
 from rq import Queue

@@ -6,7 +6,7 @@ from redis import Redis
 from rq import Queue
 
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 import config
 import jobs
