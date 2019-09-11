@@ -7,7 +7,15 @@ const_map = {
     mpf(mpmath.phi):'Φ',
     mpf(mpmath.e):'e',
     mpf(mpmath.euler):'ℇ',
-    mpf(mpmath.pi):'π'
+    mpf(mpmath.pi):'π',
+    mpf(mpmath.euler): 'γ',
+    mpf(mpmath.degree): '°',
+    mpf(mpmath.catalan): 'catalan',  # actually G
+    mpf(mpmath.apery): 'ζ(3)',
+    mpf(mpmath.khinchin): 'khinchin',  # actually K
+    mpf(mpmath.mertens): 'mertens',   # actually M
+    mpf(mpmath.twinprime): 'C₂',
+    mpf(mpmath.glaisher): 'glaisher',  # actually A
 }
 
 # Print iterations progress
