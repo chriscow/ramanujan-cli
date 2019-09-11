@@ -1,7 +1,7 @@
 import os
 import itertools
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 from redis import Redis
 from rq import Queue
 
@@ -167,16 +167,20 @@ def run(max_precision=50, debug=False, silent=False):
         # output the fancy version for known functions
         #
         if lhs_algo_id == 2: # rational_function
-            numerator = utils.polynomial_to_string(lhs_a_coeff, eval(const))
-            denominator = utils.polynomial_to_string(lhs_b_coeff, eval(const))
+            const = eval(const)
+            numerator = utils.polynomial_to_string(lhs_a_coeff, const)
+            denominator = utils.polynomial_to_string(lhs_b_coeff, const)
             post = postprocs[rhs_post].__name__ + '(x) <== '
             if rhs_post == 0: #identity
                 post = ''
 
+            if const in utils.const_map:
+                const = f'{utils.const_map[const]} = {const}'
+            
             if denominator != '1':
-                print(f'LHS: {post} {numerator} / {denominator}')
+                print(f'LHS: {const} {post} {numerator} / {denominator}')
             else:
-                print(f'LHS: {post} {numerator}')
+                print(f'LHS: {const} {post} {numerator}')
         else:
             print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
 
@@ -203,6 +207,8 @@ def key_matches(lhs, rhs, silent):
         Three element array:
             matching key, lhs algo arguments, rhs algo arguments
     '''
+    already_searched = set() # set of fractional parts we already searched
+
     for key in lhs.redis.scan_iter():
 
         # *hs_vals is a list of algorithm parameters used to generate the result
@@ -210,3 +216,5 @@ def key_matches(lhs, rhs, silent):
         rhs_vals = rhs.get(key)
         if rhs_vals:
             yield (key, lhs_vals, rhs_vals)
+
+
