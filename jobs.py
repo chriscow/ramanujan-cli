@@ -21,7 +21,7 @@ def ping(timestamp):
 
 
 
-def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_list):
+def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_list, run_postproc):
     '''
     This method is queued up by the master process to be executed by a Celery worker.
 
@@ -81,7 +81,7 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
             # If we are configued to run the postproc functions, do so
             # otherwise, just use the value from above and identify
             # the postproc function as identity() type_id == 0
-            if config.run_postproc_functions:
+            if run_postproc:
                 result = fn(value) # run the postproc function against the value
             else:
                 fn.type_id = 0 # identity function
@@ -110,18 +110,14 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
             db.set(result, algo_data)
             redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
-            # also store just the fractional part of the result
-            # fractional_result = mpmath.frac(result)
-            # if black_list and fractional_result in black_list or mpmath.isnan(fractional_result) or mpmath.isinf(fractional_result):
-            #     continue
-            
-            # redis_start = datetime.now()
-            # db.set(fractional_result, algo_data)
-            # redis_times.append( (datetime.now() - redis_start).total_seconds() )
+            # Store just the fractional part of the result
+            frac_result = mpmath.frac(result)
+            db.set(frac_result, algo_data)
 
-            # if we aren't calling postproc functions, bail out here
-            if not config.run_postproc_functions:
+            # bail out early if we are not running the post-proc functions
+            if not run_postproc:
                 break
+            
 
         # logger.debug(f'Algo+Post for {algo.__name__} {a_coeff} {b_coeff} done at {datetime.now() - start}')
     
@@ -257,10 +253,10 @@ if __name__ == '__main__':
 
 
     #zero
-    store(db, precision, 'continued_fraction', [(0,0,0)], [(0,0,0)], '(0,200)', black_list)
+    store(db, precision, 'continued_fraction', [(0,0,0)], [(0,0,0)], '(0,200)', black_list, True)
 
     # phi
-    store(db, precision, 'continued_fraction',[(1,0,0)], [(1,0,0)], '(0,200)', black_list)
+    store(db, precision, 'continued_fraction',[(1,0,0)], [(1,0,0)], '(0,200)', black_list, True)
 
     a = []
     b = []
@@ -270,8 +266,8 @@ if __name__ == '__main__':
         a.append(a_coeff)
         b.append(b_coeff)
 
-    store(db, precision, 'continued_fraction', a, b, '(0,200)', black_list)
+    store(db, precision, 'continued_fraction', a, b, '(0,200)', black_list, False)
 
-    store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list)
+    store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list, False)
 
     print('jobs.py passed')
