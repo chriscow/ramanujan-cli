@@ -12,7 +12,7 @@ def rational_function(a, b):
     """
     return mpf(a / b) if b != 0 else mpmath.nan 
 
-rational_function.type_id = 2
+rational_function.type_id = 0
 
 
 def continued_fraction(a, b=None):
@@ -60,21 +60,20 @@ def continued_fraction(a, b=None):
 continued_fraction.type_id = 1
 
 
-def continued_radical(a, b, depth=20):
 
-    root = 0
+def nested_radical(a, b):
+    '''
+    sqrt(a + b * sqrt(a + b * sqrt(a + b * sqrt([ ... ]))))
+    https://www.johndcook.com/blog/2013/09/13/ramanujans-nested-radical/
+    '''
+    root = 1
 
-    # we assume the values were solved for x = 0 to poly_range
-    # we want to reverse that so x == 0 is last
-    a.reverse()
-    b.reverse()
-
-    for i in range(depth):
-        root = a[i] + b[i] * mpmath.sqrt(root)
+    for a_val, b_val in zip(reversed(a), reversed(b)):
+        root = mpmath.sqrt(b_val * root + a_val)
 
     return root
 
-continued_radical.type_id = 2
+nested_radical.type_id = 2
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -152,6 +151,13 @@ if __name__ == "__main__":
     #   python algorithms.py
     #
 
+    # This block will throw an exception if there is a duplicate type_id
+    import utils
+    import sys
+    algorithms = sys.modules[__name__] # need to refer to 'this' module
+    algos = utils.get_funcs(algorithms)
+    
+
     # test solve_polynomial
     # 1 + 2x + 3x^2 where x = 5
     # 1 + 10 + 3 * 25 = 11 + 75 = 86
@@ -186,6 +192,16 @@ if __name__ == "__main__":
     b = [-1.0, -3.0, -7.0, -13.0, -21.0, -31.0, -43.0, -57.0, -73.0, -91.0, -111.0, -133.0, -157.0, -183.0, -211.0, -241.0, -273.0, -307.0, -343.0, -381.0]
     res = continued_radical(a, b)
     assert (mpmath.mp.dps == 15), "The assertion below assumes a 15 digit precision"
-    assert (res == mpc(real='-8.7695632738087319', imag='-5.977884644068614'))
+    assert (res == mpc(real='0.9601180197880006', imag='-3.1130999018855658'))
+    # Paul's algo got this:
+    # assert (res == mpc(real='-8.7695632738087319', imag='-5.977884644068614'))
+
+    # Find phi
+    res = solve((1,0,0), (1,0,0), (0,201), continued_radical)
+    assert(res == mpf(mpmath.phi))
+
+    # Finds 3  (Ramanujan’s nested radical)
+    res = solve((1,0,0), (2,1,0), (0,200), continued_radical)
+    assert(res == 3)
 
     print('All algorithms tests passed')
