@@ -185,12 +185,19 @@ def run(max_precision=50, debug=False, silent=False):
             print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
 
         if rhs_algo_id == 1: # continued fraction
-            cont_frac = utils.cont_frac_to_string(rhs_a_coeff, rhs_b_coeff)
+            cont_frac = utils.cont_frac_to_string(rhs_a_coeff, rhs_b_coeff, rhs_result)
             post = postprocs[rhs_post].__name__ + '(x) <== '
             if rhs_post == 0: #identity
                 post = ''
 
             print(f'RHS: {post} {cont_frac}')
+        elif rhs_algo_id == 2: # nested radical
+            nest_rad = utils.nested_radical_to_string(rhs_a_coeff, rhs_b_coeff, rhs_result)
+            post = postprocs[rhs_post].__name__ + '(x) <== '
+            if rhs_post == 0: #identity
+                post = ''
+
+            print(f'RHS: {post} {nest_rad}')
         else:
             print(f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_coeff} b:{rhs_b_coeff})) for x => poly range:{poly_range}')
         print('')
