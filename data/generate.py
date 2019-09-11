@@ -25,7 +25,7 @@ def run(side, db, use_constants, debug=False, silent=False):
     b_range    = side.b_range
     poly_range = config.polynomial_range
     black_list = side.black_list
-    run_postproc = side.run_postproc
+    run_postproc = side.run_postproc_functions
     
     work = set()
 
