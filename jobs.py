@@ -13,7 +13,7 @@ import postproc
 import utils
 
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 
 def ping(timestamp):
@@ -88,14 +88,8 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
                 result = value
 
             post_times.append( (datetime.now() - st).total_seconds() )
-
-            # If the result we have is in the black list, don't store it
-            if black_list and result in black_list or mpmath.isnan(result) or mpmath.isinf(result):
-                continue
-
-            # complex numbers not supported yet
-            if isinstance(result, mpmath.mpc):
-                logging.debug(f'Skipping complex result: {result}')
+            
+            if mpmath.isnan(result) or mpmath.isinf(result):
                 continue
 
             # store the result in the hashtable along with the
@@ -105,14 +99,24 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
             # verify = reverse_solve(algo_data)
             # assert(verify == result)
 
-            # Send the result and data to Redis
-            redis_start = datetime.now()
-            db.set(result, algo_data)
-            redis_times.append( (datetime.now() - redis_start).total_seconds() )
+            # Convert 'result' to a set containing what numbers we will use for keys
+            if isinstance(result, mpc):
+                # If complex, send the real part, imaginary part, 
+                # and the fractional parts of each
+                keys = set([result.real, result.imag, mpmath.frac(result.real), mpmath.frac(result.imag)])
+            else:
+                # If real, just send itself and the fractional part
+                keys = set([result, mpmath.frac(result)])
 
-            # Store just the fractional part of the result
-            frac_result = mpmath.frac(result)
-            db.set(frac_result, algo_data)
+
+            # remove any values contained in the blacklist
+            keys = keys - black_list
+
+            # finally, send the keys and values to redis
+            for key in keys:
+                redis_start = datetime.now()
+                db.set(key, algo_data)
+                redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
             # bail out early if we are not running the post-proc functions
             if not run_postproc:
@@ -249,7 +253,7 @@ if __name__ == '__main__':
 
     db = 14 # unused database
     precision = 8
-    black_list = []
+    black_list = set([])
 
 
     #zero
