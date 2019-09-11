@@ -19,32 +19,41 @@ def run(side, db, use_constants, debug=False, silent=False):
     precision  = config.hash_precision
     const_type = type(mpmath.e)
 
-    algo   = side.algorithm.__name__
-
     a_range    = side.a_range
     b_range    = side.b_range
     poly_range = config.polynomial_range
     black_list = side.black_list
     run_postproc = side.run_postproc_functions
+
+    print(f'''
+
+    hash precision: {config.hash_precision}
+    algorithm: {','.join([algo.__name__ for algo in side.algorithms])}
+    poly A coeff range: {a_range[0]}
+    poly B coeff range: {b_range[0]}
+    run post proc f(x)?: {side.run_postproc_functions}
+    
+    ''')
     
     work = set()
 
-    if use_constants:
-        count = 0
+    for algo in side.algorithms:
 
-        # Loop through the list of constants in the config file.  The constant
-        # value is used for the 'polynomial range' as a single value
-        for const in config.constants:
+        if use_constants:
+            count = 0
 
-            # queue_work generates several jobs based on the a and b ranges
-            jobs = _queue_work(db, precision, algo, a_range, b_range, const, black_list, run_postproc, debug=debug, silent=True)
-            work |= jobs
-            count += 1
+            # Loop through the list of constants in the config file.  The constant
+            # value is used for the 'polynomial range' as a single value
+            for const in config.constants:
 
-            if not silent:
-                utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
-    else:
-        work = _queue_work(db, precision, algo, a_range, b_range, repr(config.polynomial_range), black_list, run_postproc, debug=debug, silent=silent)
+                # queue_work generates several jobs based on the a and b ranges
+                work |= _queue_work(db, precision, algo.__name__, a_range, b_range, const, black_list, run_postproc, debug=debug, silent=True)
+                count += 1
+
+                if not silent:
+                    utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
+        else:
+            work |= _queue_work(db, precision, algo.__name__, a_range, b_range, repr(config.polynomial_range), black_list, run_postproc, debug=debug, silent=silent)
 
     return work
 
