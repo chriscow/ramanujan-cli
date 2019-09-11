@@ -95,6 +95,7 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
 
             # complex numbers not supported yet
             if isinstance(result, mpmath.mpc):
+                logging.debug(f'Skipping complex result: {result}')
                 continue
 
             # store the result in the hashtable along with the
