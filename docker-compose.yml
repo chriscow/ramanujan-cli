@@ -1,68 +1,73 @@
 version: "3.7"
 
 services:
-    redis:
-        image: redis:latest
-        ports:
-            - '6379:6379'
-        expose:
-            - "6379"
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    expose:
+      - "6379"
 
-        volumes:
-            - ./redis-data:/redis
-        # enable fully-durable alternative to snapshotting
-        command: ["sh", "-c", "redis-server /redis/redis.conf"]
+    volumes:
+      - ./redis-data:/redis
+    # enable fully-durable alternative to snapshotting
+    command: ["sh", "-c", "redis-server /redis/redis.conf"]
 
-    workers:
-        image: workers
-        build:
-            context: .
-            dockerfile: workers/Dockerfile
-        volumes:
-            - ./:/app
-        links:
-            - redis
-        depends_on:
-            - redis
+  workers:
+    image: workers
+    build:
+      context: .
+      dockerfile: workers/Dockerfile
+    volumes:
+      - ./:/app
+    links:
+      - redis
+    depends_on:
+      - redis
 
-        environment:
-            - DOCKER=1
-            
-    rq-dashboard:
-        image: rq-dashboard
-        build:
-            context: .
-            dockerfile: rq-dashboard/Dockerfile
-        environment:
-            - RQ_DASHBOARD_REDIS_URL
-        ports:
-            - '9181:9181'
-        expose:
-            - "9181"
-        links:
-            - redis
-        depends_on:
-            - redis
+    environment:
+      - DOCKER=1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - WORK_QUEUE_DB=15
+      - CONFIG_DB=14
+      - LHS_DB=1
+      - RHS_DB=0
+  rq-dashboard:
+    image: rq-dashboard
+    build:
+      context: .
+      dockerfile: rq-dashboard/Dockerfile
+    environment:
+      - RQ_DASHBOARD_REDIS_URL
+    ports:
+      - "9181:9181"
+    expose:
+      - "9181"
+    links:
+      - redis
+    depends_on:
+      - redis
 
-    ramanujan:
-        image: ramanujan
-        build:
-            context: .
-            dockerfile: Dockerfile
-        
-        volumes:
-            - ./:/ramanujan-cli
+  ramanujan:
+    image: ramanujan
+    build:
+      context: .
+      dockerfile: Dockerfile
 
-        links:
-            - redis
+    volumes:
+      - ./:/ramanujan-cli
 
-        depends_on:
-            - redis
-            - workers
-            - rq-dashboard
+    links:
+      - redis
 
-        environment:
-            - DOCKER=1
+    depends_on:
+      - redis
+      - workers
+      - rq-dashboard
 
-        stdin_open: true
-        tty: true
+    environment:
+      - DOCKER=1
+
+    stdin_open: true
+    tty: true

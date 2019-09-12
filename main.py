@@ -33,11 +33,8 @@ def check_environment():
     if os.getenv('RHS_DB') is None:
         print('Creating default .env file ...')
         with open('.env', 'w') as env:
-            env.writelines('''REDIS_HOST=localhost
+            env.writelines('''REDIS_HOST=redis
 REDIS_PORT=6379
-
-CELERY_BROKER_URL='redis://localhost:6379/15'
-CELERY_BACKEND_URL='redis://localhost:6379/15'
 
 WORK_QUEUE_DB=15
 CONFIG_DB=14
