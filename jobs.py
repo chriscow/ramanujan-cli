@@ -13,7 +13,7 @@ import postproc
 import utils
 
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 
 def ping(timestamp):
@@ -21,7 +21,7 @@ def ping(timestamp):
 
 
 
-def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_list):
+def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_list, run_postproc):
     '''
     This method is queued up by the master process to be executed by a Celery worker.
 
@@ -81,20 +81,15 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
             # If we are configued to run the postproc functions, do so
             # otherwise, just use the value from above and identify
             # the postproc function as identity() type_id == 0
-            if config.run_postproc_functions:
+            if run_postproc:
                 result = fn(value) # run the postproc function against the value
             else:
                 fn.type_id = 0 # identity function
                 result = value
 
             post_times.append( (datetime.now() - st).total_seconds() )
-
-            # If the result we have is in the black list, don't store it
-            if black_list and result in black_list or mpmath.isnan(result) or mpmath.isinf(result):
-                continue
-
-            # complex numbers not supported yet
-            if isinstance(result, mpmath.mpc):
+            
+            if mpmath.isnan(result) or mpmath.isinf(result):
                 continue
 
             # store the result in the hashtable along with the
@@ -104,23 +99,29 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
             # verify = reverse_solve(algo_data)
             # assert(verify == result)
 
-            # Send the result and data to Redis
-            redis_start = datetime.now()
-            db.set(result, algo_data)
-            redis_times.append( (datetime.now() - redis_start).total_seconds() )
+            # Convert 'result' to a set containing what numbers we will use for keys
+            if isinstance(result, mpc):
+                # If complex, send the real part, imaginary part, 
+                # and the fractional parts of each
+                keys = set([result.real, result.imag, mpmath.frac(result.real), mpmath.frac(result.imag)])
+            else:
+                # If real, just send itself and the fractional part
+                keys = set([result, mpmath.frac(result)])
 
-            # also store just the fractional part of the result
-            # fractional_result = mpmath.frac(result)
-            # if black_list and fractional_result in black_list or mpmath.isnan(fractional_result) or mpmath.isinf(fractional_result):
-            #     continue
-            
-            # redis_start = datetime.now()
-            # db.set(fractional_result, algo_data)
-            # redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
-            # if we aren't calling postproc functions, bail out here
-            if not config.run_postproc_functions:
+            # remove any values contained in the blacklist
+            keys = keys - black_list
+
+            # finally, send the keys and values to redis
+            for key in keys:
+                redis_start = datetime.now()
+                db.set(key, algo_data)
+                redis_times.append( (datetime.now() - redis_start).total_seconds() )
+
+            # bail out early if we are not running the post-proc functions
+            if not run_postproc:
                 break
+            
 
         # logger.debug(f'Algo+Post for {algo.__name__} {a_coeff} {b_coeff} done at {datetime.now() - start}')
     
@@ -252,14 +253,14 @@ if __name__ == '__main__':
 
     db = 14 # unused database
     precision = 8
-    black_list = []
+    black_list = set([])
 
 
     #zero
-    store(db, precision, 'continued_fraction', [(0,0,0)], [(0,0,0)], '(0,200)', black_list)
+    store(db, precision, 'continued_fraction', [(0,0,0)], [(0,0,0)], '(0,200)', black_list, True)
 
     # phi
-    store(db, precision, 'continued_fraction',[(1,0,0)], [(1,0,0)], '(0,200)', black_list)
+    store(db, precision, 'continued_fraction',[(1,0,0)], [(1,0,0)], '(0,200)', black_list, True)
 
     a = []
     b = []
@@ -269,8 +270,8 @@ if __name__ == '__main__':
         a.append(a_coeff)
         b.append(b_coeff)
 
-    store(db, precision, 'continued_fraction', a, b, '(0,200)', black_list)
+    store(db, precision, 'continued_fraction', a, b, '(0,200)', black_list, False)
 
-    store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list)
+    store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list, False)
 
     print('jobs.py passed')

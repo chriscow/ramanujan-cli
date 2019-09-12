@@ -2,7 +2,7 @@ import os
 import redis
 import dotenv
 import mpmath
-from mpmath import mpf   
+from mpmath import mpf, mpc
 
 
 '''

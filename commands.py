@@ -6,7 +6,7 @@ from redis import Redis
 from rq import Queue
 
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 import config
 import jobs
@@ -77,11 +77,15 @@ def generate(rhs, lhs, debug, silent):
     work = set()
 
     if rhs: # generate the work items for the right hand side
+        print()
+        print('\nGENERATE RHS')
         work = data.generate.run(config.rhs, int(os.getenv('RHS_DB')), False, debug, silent)
         jobs.wait(work, silent)
 
 
     if lhs: # generate the work items for the left hand side
+        print()
+        print('\nGENERATE LHS')
         work = data.generate.run(config.lhs, int(os.getenv('LHS_DB')), True, debug, silent)
         jobs.wait(work, silent)
 

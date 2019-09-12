@@ -1,5 +1,5 @@
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 import algorithms
 
@@ -15,16 +15,60 @@ hash_precision = 8
 # range(i, j) polynomial f(x) goes from i to j - 1
 polynomial_range = (0, 201)
 
-# Take the algorithm result and run it through all the functions in postproc.py
-# and save those values too.  Takes much longer though
-run_postproc_functions=False
 
 lhs = Config()
 
+# Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
-# except for the predefined mpmath.* constants
-constants = ['mpmath.phi', 'mpmath.e','mpmath.euler', 'mpmath.degree', 'mpmath.catalan',
-'mpmath.apery', 'mpmath.khinchin', 'mpmath.glaisher', 'mpmath.mertens', 'mpmath.twinprime',
+constants = [
+'mpmath.phi', 
+'mpmath.e',
+'mpmath.euler', 
+'mpmath.degree', 
+
+# https://en.wikipedia.org/wiki/Catalan%27s_constant
+'mpmath.catalan',
+
+# Apery's constant happens to be ζ(3) 
+# https://en.wikipedia.org/wiki/Ap%C3%A9ry%27s_constant
+'mpmath.apery', 
+
+# https://en.wikipedia.org/wiki/Khinchin%27s_constant
+# In number theory, Aleksandr Yakovlevich Khinchin proved that for almost all 
+# real numbers x, coefficients a sub-i of the continued fraction expansion of x 
+# have a finite geometric mean that is independent of the value of x and is 
+# known as Khinchin's constant.
+#
+# That is, for:
+#                 1
+#    x = a0 + -----------
+#                     1
+#             a1 + ---------
+#                         1
+#                  a2 + ---------
+#                     [ ... ]
+# it is almost always true that
+#
+# lim(a1,a2, ... an)^(1/n) = mpmath.khinchin
+# n -> ∞
+'mpmath.khinchin', 
+
+# https://en.wikipedia.org/wiki/Glaisher%E2%80%93Kinkelin_constant
+# Glaisher–Kinkelin constant is an important constant which appears in many expressions for the 
+# derivative of the Riemann zeta function. It has a numerical value of 
+# approximately 1.2824271291.
+'mpmath.glaisher', 
+
+# https://en.wikipedia.org/wiki/Meissel%E2%80%93Mertens_constant
+# prime reciprocal constant
+# defined as the limiting difference between the harmonic series summed only 
+# over the primes and the natural logarithm of the natural logarithm
+'mpmath.mertens', 
+
+# https://en.wikipedia.org/wiki/Twin_prime#First_Hardy%E2%80%93Littlewood_conjecture
+'mpmath.twinprime',
+
+# First Riemann zeta zeros
 '14.134725141734693790457251983562470270784257115699243175685567460149963429809256764949010393171561012779202971548797436766142691469882254582505363239447137780413381237205970549621955865860200555566725836010773700205410982661507542780517442591306254481978651072304938725629738321577420395215725674809332140034990468034346267314420920377385487141378317356396995365428113079680531491688529067820822980492643386667346233200787587617920056048680543568014444246510655975686659032286865105448594443206240727270320942745222130487487209241238514183514605427901524478338354254533440044879368067616973008190007313938549837362150130451672696838920039176285123212854220523969133425832275335164060169763527563758969537674920336127209259991730427075683087951184453489180086300826483125169112710682910523759617977431815170713545316775495153828937849036474709727019948485532209253574357909226125247736595518016975233461213977316005354125926747455725877801472609830808978600712532087509395997966660675378381214891908864977277554420656532052405',
 '21.022039638771554992628479593896902777334340524902781754629520403587598586068890799713658514180151419533725473642475891383865068603731321262118821624375741669256544711844071194031306725646227792614887337435552059147397132822662470789076753814440726466841906077127569834054514028439923222536788268236111289270057585653273158866604214000907115108009006972002799871101758475196322164968659005748112479386916383518372342780734490239101038504575641215958399921001621834669113158721748057170315793581797724963272407699221125663441561823605180476714422714655559673781247765004555840908644291697757046381655177496445249876742370366456577704837992029270664315837893238009151146858070430828784147861992007607760477484140782738907003895760433245127827863720909303797251823709180804230666738343799022825158287887617612661871382967858745623765006662420780814517636976391374340593412797549697276850306200263121273830462939302565414382374433344022024800453343883072838731260230654753483786801182789317520010690056016544152811050970637593228',
 '25.010857580145688763213790992562821818659549672557996672496542006745092098441644277840238224558062440750471046149055778378299851522730801188133933582671689587225169810438735512928493727191994622975912675478696628856807735070039957723114023284276873669399873219586487752250099192453474976208576612334599735443558367531381265997764529037448496994791137897722066199307189972322549732271630051591619212797740876600067291498308127930667027350849516001984670542469491796695225514179319665391273414521673160233737754489414641711937848957499751411065856287969007670986282721864953729632392584034913871430489335889461149586242390368556175189359878735685683089271444468756375337019130417377142535868018531867896375326868632660719766920532953347850670798287711867494428143972542551653196797799127226844589692794085995072279605136120213696806476533976269691774251249095257214003855886494422730332216278403670865759210329078986615602048427519273514192759701784916608441107482155912831074931422640278339513428773126644105168571016344289902',
@@ -33,9 +77,14 @@ constants = ['mpmath.phi', 'mpmath.e','mpmath.euler', 'mpmath.degree', 'mpmath.c
 
 
 # Ignore lhs results that equal these values
-lhs.black_list = (-2, -1, 0, 1, 2)
+lhs.black_list = set([-2, -1, 0, 1, 2])
 
-lhs.algorithm = algorithms.rational_function 
+lhs.algorithms = [algorithms.rational_function] 
+
+
+# Take the left-side algorithm result and run it through all the functions in postproc.py
+# and save those values too.  Takes much longer though
+lhs.run_postproc_functions=False
 
 #
 # The ranges below define the ranges of the coefficients in reverse order.
@@ -47,8 +96,8 @@ lhs.algorithm = algorithms.rational_function
 #
 
 # This range simply searches for the constant
-# lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
-# lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
+lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
+lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
 
 #                     
 # Finds  e / (e - 2)  3.784422382354666325454672914929687976837158203125
@@ -60,8 +109,8 @@ lhs.algorithm = algorithms.rational_function
 # lhs.b_range   = [[ [-2,-1], [1,2], [0,1] ]]
 
 
-lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
+# lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
+# lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
 
 # Slow, especially with postproc fn()'s called
 # lhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
@@ -80,18 +129,29 @@ lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
 
 
 rhs = Config()
-rhs.algorithm = algorithms.continued_fraction  # or algorithms.continued_radical
+
+rhs.algorithms = [algorithms.nested_radical, algorithms.continued_fraction]
+
+# Take the left-side algorithm result and run it through all the functions in postproc.py
+# and save those values too.  Takes much longer though
+rhs.run_postproc_functions=False
+
 
 # If the algorithm (or postproc functions) results in any of these values, 
 # don't store it
-rhs.black_list = (-2, -1, 0, 1, 2)
+rhs.black_list = set([-2, -1, 0, 1, 2])
 
 #
 #                    C   +  Bx   + Ax^2
 #
 
-rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]] # first range is -2,4 so it finds e
-rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
+# rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]] # first range is -2,4 so it finds e
+# rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
+
+# nested radical finds 3
+# rhs.a_range = [[ [1,2], [0,1], [0,1] ]]
+# rhs.b_range = [[ [2,3], [1,2], [0,1] ]]
+
 
 # Slow, especially with postproc fn()'s called
 # rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
@@ -111,13 +171,13 @@ rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
 # rhs.a_range = [[ [3,4], [1,2], [0,1] ]] 
 # rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
 
-# continued fraction for phi
+# finds phi for BOTH continued fraction and nested radical
 # rhs.a_range = [[ [1,2], [0,1], [0,1] ]] 
 # rhs.b_range = [[ [1,2], [0,1], [0,1] ]]
 
 # just enough range to generate BOTH phi and e
-# rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
-# rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
+rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
+rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
 
 # don't do this one yet ...  
 #       ____

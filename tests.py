@@ -2,7 +2,7 @@ import os
 import unittest
 import dotenv
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 import config
 

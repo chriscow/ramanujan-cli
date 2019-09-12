@@ -7,10 +7,10 @@ verify_ssl = true
 
 [packages]
 rq = "*"
-mpmath = "*"
 click = "*"
 redis = "*"
 python-dotenv = "*"
+mpmath = "*"
 
 [requires]
 python_version = "3.7"
