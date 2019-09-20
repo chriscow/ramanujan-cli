@@ -181,7 +181,7 @@ def wait(work, silent):
                 avg_secs = sum(elapsed) / len(elapsed)
                 eta = timedelta(seconds = len(work) / len(elapsed) * avg_secs)
 
-            utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='     ') # eta not working, suffix=f'ETA: {eta}')
+            utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='          ') # eta not working, suffix=f'ETA: {eta}')
     
     return results
     
