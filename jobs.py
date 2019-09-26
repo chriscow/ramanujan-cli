@@ -20,8 +20,7 @@ def ping(timestamp):
     return timestamp
 
 
-
-def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_list, run_postproc):
+def store(db, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_postproc):
     '''
     This method is queued up by the master process to be executed by a Celery worker.
 
@@ -37,19 +36,8 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
     # Get the actual function from the name passed in
     algo = getattr(algorithms, algo_name)
 
-    # Creates a list of all combinations of coefficients
-    coeff_list = zip(a_coeffs, b_coeffs)
-
     # Get all the functions in the postproc module
     funcs = [fn for name,fn in inspect.getmembers(postproc) if inspect.isfunction(fn)]
-
-    # Determine if we are using a constant value or a range of values for x
-    try:
-        # if it can be cast to a float, then convert it to mpf
-        float(serialized_range)
-        poly_range = mpf(serialized_range)
-    except ValueError:
-        poly_range = eval(serialized_range)
 
     # These are just to track times for various blocks of code
     start = datetime.now()
@@ -57,16 +45,14 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
     post_times = []
     redis_times = []
 
-
-    for a_coeff, b_coeff in coeff_list:
+    for args in args_list:
 
         # logger.debug(f'Starting {algo.__name__} {a_coeff} {b_coeff} at {datetime.now() - start}')
 
         # Call the algorithm function
-        st = datetime.now()
-        value = algorithms.solve(a_coeff, b_coeff, poly_range, algo)
+        st = datetime.now()        
+        value = algo(*args)
         
-
         algo_times.append( (datetime.now() - st).total_seconds() )
 
         # Loop through all the postproc functions defined in postproc.py
@@ -94,7 +80,7 @@ def store(db, accuracy, algo_name, a_coeffs, b_coeffs, serialized_range, black_l
 
             # store the result in the hashtable along with the
             # coefficients and other arguments that generated it
-            algo_data = (algo.type_id, fn.type_id, result, serialized_range, a_coeff, b_coeff)
+            algo_data = (algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen)
 
             # verify = reverse_solve(algo_data)
             # assert(verify == result)

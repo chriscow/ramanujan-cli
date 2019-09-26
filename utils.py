@@ -40,15 +40,8 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
     print('\r %s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
 
 
-def cont_frac_to_string(a_coeff, b_coeff, result=None):
+def cont_frac_to_string(a, b, result=None):
 
-    p = solve_polynomial
-
-    if result is None:
-        result = solve(a_coeff, b_coeff, (0,201), continued_fraction)
-
-    a = [p(a_coeff, 0), p(a_coeff, 1), p(a_coeff, 2), p(a_coeff, 3)]
-    b = [p(b_coeff, 1), p(b_coeff, 2), p(b_coeff, 3), p(b_coeff, 4)]
     sign = ['+' if i > 0 else '-' for i in b] # get the sign
     b = [mpmath.fabs(i) for i in b]  # now normalize the sign for b (make it positive)
 
@@ -63,21 +56,18 @@ def cont_frac_to_string(a_coeff, b_coeff, result=None):
                         {4} {12} -----------   
                                 [...]""".format(result, *a, *b, *sign)
 
-def nested_radical_to_string(a_coeff, b_coeff, result=None):
+def nested_radical_to_string(a, b, result=None):
 
-    p = solve_polynomial
-
-    if result is None:
-        result = solve(a_coeff, b_coeff, (0,201), nested_radical)
-
-    a = [p(a_coeff, 0), p(a_coeff, 1), p(a_coeff, 2), p(a_coeff, 3)]
-    b = [p(b_coeff, 1), p(b_coeff, 2), p(b_coeff, 3), p(b_coeff, 4)]
     sign = ['+' if i > 0 else '-' for i in b] # get the sign
     b = [mpmath.fabs(i) for i in b]  # now normalize the sign for b (make it positive)
     # [ x if x%2 else x*100 for x in range(1, 10) ]
     b = [i if i != 1 else '' for i in b]
 
-    return "{0} = √({1} + {5}√({2} {9} {6}√({3} {10} {7}√({4} {11} {8}√([ ... ] )))))".format(result, *a, *b, *sign)
+    a = a[:4]
+    b = b[:4]
+    sign = sign[:4]
+    
+    return "{0} = √({1} {9} {5}√({2} {10} {6}√({3} {11} {7}√({4} {12} {8}√([ ... ] )))))".format(result, *a, *b, *sign)
 
 def polynomial_to_string(coeff, x):
 

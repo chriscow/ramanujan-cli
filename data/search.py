@@ -55,9 +55,11 @@ def run(max_precision=50, debug=False, silent=False):
             #   - algorithm type_id from algorithms.py that generated the result
             #   - postproc type_id of the function from postprocs.py that altered the result
             #   - final calculated value
-            #   - polynomial range or constant value (depends on left or right side)
-            #   - a coefficients
-            #   - b coefficients
+            #   - algorithm arguments
+            #   - a_generator method and args
+            #   - b generator method and args
+
+            # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
             _,_,lhs_result,_,_,_ = eval(lhs_val)
             _,_,rhs_result,_,_,_ = eval(rhs_val)
 
@@ -85,7 +87,7 @@ def run(max_precision=50, debug=False, silent=False):
         print()
         print(f'Found {len(matches)} matches at {mpmath.mp.dps} decimal places')
 
-
+    '''
     # 'matches()' contains the arguments where the values matched exactly
     # at 15 decimal places (whatever is in the config)
     #
@@ -151,13 +153,15 @@ def run(max_precision=50, debug=False, silent=False):
             print(f'Found {len(bigger_matches)} matches at {mpmath.mp.dps} decimal places ...')
         
         matches = bigger_matches
-    
+    '''
     # By the time we reach here, if there were any high-precision matches, 
     # dump out the data to the screen
     mpmath.mp.dps = 15 # back to default
-    for lhs, rhs in bigger_matches:
-        lhs_algo_id, lhs_post, lhs_result, const, lhs_a_coeff, lhs_b_coeff = eval(lhs)
-        rhs_algo_id, rhs_post, rhs_result, poly_range, rhs_a_coeff, rhs_b_coeff = eval(rhs)
+    for lhs, rhs in matches:
+            # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
+
+        lhs_algo_id, lhs_post, lhs_result, lhs_args, lhs_a_gen, lhs_b_gen = eval(lhs)
+        rhs_algo_id, rhs_post, rhs_result, rhs_args, rhs_a_gen, rhs_b_gen = eval(rhs)
 
         print('')
         print('-' * 60)
@@ -166,10 +170,18 @@ def run(max_precision=50, debug=False, silent=False):
         #
         # output the fancy version for known functions
         #
-        if lhs_algo_id == 2: # rational_function
-            const = eval(const)
-            numerator = utils.polynomial_to_string(lhs_a_coeff, const)
-            denominator = utils.polynomial_to_string(lhs_b_coeff, const)
+        if lhs_algo_id == 0: # rational_function
+            lhs_args = eval(lhs_args) # these are the arguments to the rational_function
+
+            numerator = lhs_args[0]
+            denominator = lhs_args[1]
+
+            # sequence generator function name and args
+            func_name, func_args = lhs_a_gen
+            poly_range, poly_x_values = eval(func_args)
+            const = eval(poly_x_values[0])
+
+
             post = postprocs[rhs_post].__name__ + '(x) <== '
             if rhs_post == 0: #identity
                 post = ''
@@ -184,15 +196,16 @@ def run(max_precision=50, debug=False, silent=False):
         else:
             print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
 
+        a, b = eval(rhs_args)
         if rhs_algo_id == 1: # continued fraction
-            cont_frac = utils.cont_frac_to_string(rhs_a_coeff, rhs_b_coeff, rhs_result)
+            cont_frac = utils.cont_frac_to_string(a, b, rhs_result)
             post = postprocs[rhs_post].__name__ + '(x) <== '
             if rhs_post == 0: #identity
                 post = ''
 
             print(f'RHS: {post} {cont_frac}')
         elif rhs_algo_id == 2: # nested radical
-            nest_rad = utils.nested_radical_to_string(rhs_a_coeff, rhs_b_coeff, rhs_result)
+            nest_rad = utils.nested_radical_to_string(a, b, rhs_result)
             post = postprocs[rhs_post].__name__ + '(x) <== '
             if rhs_post == 0: #identity
                 post = ''

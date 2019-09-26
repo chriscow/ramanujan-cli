@@ -1,4 +1,5 @@
 import os
+import itertools
 
 import mpmath
 from mpmath import mpf, mpc
@@ -19,9 +20,11 @@ def run(side, db, use_constants, debug=False, silent=False):
     precision  = config.hash_precision
     const_type = type(mpmath.e)
 
-    a_range    = side.a_range
-    b_range    = side.b_range
-    poly_range = config.polynomial_range
+    a_gen = side.generator.a.algorithm
+    a_args = side.generator.a.arguments
+    b_gen = side.generator.b.algorithm
+    b_args = side.generator.b.arguments
+
     black_list = side.black_list
     run_postproc = side.run_postproc_functions
 
@@ -37,6 +40,8 @@ def run(side, db, use_constants, debug=False, silent=False):
     
     work = set()
 
+use constants array as poly_range in lhs.generator.arguments
+
     for algo in side.algorithms:
 
         if use_constants:
@@ -46,19 +51,35 @@ def run(side, db, use_constants, debug=False, silent=False):
             # value is used for the 'polynomial range' as a single value
             for const in config.constants:
 
+                # Determine if we are using a constant mpmath value or a decimal
+                try:
+                    # if it can be cast to a float, then convert it to mpf
+                    float(const)
+                    const = mpf(const)
+                except ValueError:
+                    pass # leave as a string - will eval in generator
+
                 # queue_work generates several jobs based on the a and b ranges
-                work |= _queue_work(db, precision, algo.__name__, a_range, b_range, const, black_list, run_postproc, debug=debug, silent=True)
+                work |= _queue_work(db, precision, algo.__name__, 
+                    a_gen, a_args, 
+                    b_gen, b_args, 
+                    black_list, run_postproc, 
+                    debug=debug, silent=True)
                 count += 1
 
                 if not silent:
                     utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
         else:
-            work |= _queue_work(db, precision, algo.__name__, a_range, b_range, repr(config.polynomial_range), black_list, run_postproc, debug=debug, silent=silent)
+            work |= _queue_work(db, precision, algo.__name__, 
+                a_gen, a_args, 
+                b_gen, b_args, 
+                black_list, run_postproc, 
+                debug=debug, silent=silent)
 
     return work
 
 
-def _queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_list, run_postproc, debug=False, silent=False):
+def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, b_gen_args, black_list, run_postproc, debug=False, silent=False):
     '''
     Queues the algorithm calculations to be run and stored in the database.
     '''
@@ -66,22 +87,28 @@ def _queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_li
     # Each job will contain this many a/b coefficient pairs
     batch_size = 100
 
-    # for the progress bar
-    total_work = algorithms.range_length(b_range, algorithms.range_length(a_range))
-    count = 1
-
-    a = []  # holds a subset of the coefficient a-range
-    b = []  # holds a subset of the coefficient b-range
+    arg_list = []  # holds a subset of the coefficient a-range
     work = set()  # set of all jobs queued up to know when we are done
 
     redis_conn = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
     q = Queue(connection=redis_conn)
 
-    # Loop through all coefficient possibilities
-    for a_coeff, b_coeff in algorithms.iterate_coeff_ranges(a_range, b_range):
+    gen_data = repr( (a_generator, a_gen_args, b_generator, b_gen_args) )
 
-        a.append(a_coeff)
-        b.append(b_coeff)
+    # Generate the sequences
+    a_seq = a_generator(*a_gen_args)
+    b_seq = b_generator(*b_gen_args)
+
+    # Serialize
+
+    # for the progress bar
+    all_args = list(itertools.product(a_seq, b_seq))
+    total_work = len(all_args)
+    count = 1
+
+    for args in all_args:
+
+        arg_list.append(args)
         count += 1
 
         # When the list of a's and b's are up to batch_size, queue a job
@@ -90,27 +117,38 @@ def _queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_li
             if debug:
                 # if we are debugging, don't process this job in a separate program
                 # (keeps it synchronous and all in the same process for debugging)
-                jobs.store(db, precision, algo_name, a, b, poly_range, black_list, run_postproc)
+                jobs.store(db, precision, algo_name, arg_list, 
+                    (a_generator.__name__, repr(a_gen_args)),
+                    (b_generator.__name__, repr(b_gen_args)),
+                    black_list, run_postproc)
             else:
                 # adding .delay after the function name queues it up to be 
                 # executed by a Celery worker in another process / machine            
-                job = q.enqueue(jobs.store, db, precision, algo_name, a, b, poly_range, black_list, run_postproc)
+                job = q.enqueue(jobs.store, db, precision, algo_name, arg_list, 
+                    (a_generator.__name__, repr(a_gen_args)),
+                    (b_generator.__name__, repr(b_gen_args)),
+                    black_list, run_postproc)
                 
                 work.add(job)   # hold onto the job info
 
             if not silent:
                 utils.printProgressBar(count, total_work, prefix=f'Queueing {count}/{total_work}', suffix='     ')
 
-            a = []
-            b = []
+            arg_list = []
 
     # If there are any left over coefficients whos array was not evenly
     # divisible by the batch_size at the end, queue them up also
-    if len(a):
+    if len(arg_list):
         if debug:
-            jobs.store(db, precision, algo_name, a, b, poly_range, black_list, run_postproc)
+            jobs.store(db, precision, algo_name, arg_list, 
+                (a_generator.__name__, repr(a_gen_args)),
+                (b_generator.__name__, repr(b_gen_args)),
+                black_list, run_postproc)
         else:
-            job = q.enqueue(jobs.store, db, precision, algo_name, a, b, poly_range, black_list, run_postproc)
+            job = q.enqueue(jobs.store, db, precision, algo_name, arg_list,
+                    (a_generator.__name__, repr(a_gen_args)),
+                    (b_generator.__name__, repr(b_gen_args)),
+                    black_list, run_postproc)
                
             work.add(job) 
 
@@ -120,3 +158,4 @@ def _queue_work(db, precision, algo_name, a_range, b_range, poly_range, black_li
 if __name__ == '__main__':
 
     pass
+

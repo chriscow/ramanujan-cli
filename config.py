@@ -12,8 +12,7 @@ class Config(object): pass
 
 hash_precision = 8
 
-# range(i, j) polynomial f(x) goes from i to j - 1
-polynomial_range = (0, 201)
+
 
 
 lhs = Config()
@@ -127,6 +126,18 @@ lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
 # lhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
 # lhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
 
+lhs.generator = Config()
+lhs.generator.a.algorithm = algorithms.polynomial_sequence
+lhs.generator.a.arguments = (lhs.a_range, range(0, 51))
+lhs.generator.b.algorithm = algorithms.polynomial_sequence
+lhs.generator.b.arguments = (lhs.b_range, range(0, 51))
+
+# # # # # #
+#
+# Right Hand Side
+#
+# # # # # #
+
 
 rhs = Config()
 
@@ -140,6 +151,8 @@ rhs.run_postproc_functions=False
 # If the algorithm (or postproc functions) results in any of these values, 
 # don't store it
 rhs.black_list = set([-2, -1, 0, 1, 2])
+
+
 
 #
 #                    C   +  Bx   + Ax^2
@@ -190,4 +203,10 @@ rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
 # rhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
 # rhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
 
+
+rhs.generator = Config()
+rhs.generator.a.algorithm = algorithms.polynomial_sequence
+rhs.generator.a.arguments = (rhs.a_range, range(0, 51))
+rhs.generator.b.algorithm = algorithms.polynomial_sequence
+rhs.generator.b.arguments = (rhs.b_range, range(0, 51))
 

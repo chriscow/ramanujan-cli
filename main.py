@@ -97,10 +97,8 @@ def check_worker_status():
 
 
 if __name__ == '__main__':
-    
+
     check_environment()
-    # check_redis_server()
-    # check_worker_status()
 
     cli.add_command(commands.status)
     cli.add_command(commands.clear)

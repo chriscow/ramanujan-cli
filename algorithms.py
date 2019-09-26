@@ -10,6 +10,16 @@ from mpmath import mpf, mpc
 def rational_function(a, b):
     """
     """
+    if isinstance(a, list):
+        if len(a) > 1:
+            raise Exception('rational_function does not take list arguments')
+        a = a[0]
+    
+    if isinstance(b, list):
+        if len(b) > 1:
+            raise Exception('rational_function does not take list arguments')
+        b = b[0]
+
     return mpf(a / b) if b != 0 else mpmath.nan 
 
 rational_function.type_id = 0
@@ -122,7 +132,7 @@ def solve_polynomial(coeffs, x):
     return sum([ mpf(coeffs[j]) * mpf(x) ** j for j in range(len(coeffs))])
 
 
-def solve(a_coeff, b_coeff, poly_range, algo):
+def solve(a_coeff, b_coeff, poly_range):
     """
     Simply iterates through all posibilities of coefficients and
     runs the supplied algorithm with each value and yields the result.
@@ -140,8 +150,49 @@ def solve(a_coeff, b_coeff, poly_range, algo):
         b_poly = [solve_polynomial(b_coeff, x) for x in range(*poly_range)]
 
     # a_poly and b_poly are list of polynomial results
-    # Call the algorithm specified with the values (continued fraction / rational function etc.)
-    return algo(a_poly, b_poly)
+    return a_poly, b_poly
+
+def polynomial_sequence(coeff_range, poly_x_values):
+    result = []
+
+    # check if we received an instance of mpmath constant
+    if isinstance(poly_x_values[0], str):
+        const = eval(poly_x_values[0])
+        for coeffs in coefficients(coeff_range):
+            result.append( solve_polynomial(coeffs[0], const) )
+    else:
+        for coeffs in coefficients(coeff_range):
+            result.append( [solve_polynomial(coeffs[0], x) for x in poly_x_values] )
+
+    return result
+
+
+def integer_sequence(digits, digits_repeat, count, prefix_digits = [], prefix_repeat = 0):
+    """
+    Generates all possible integer sequences
+
+    Arguments:
+        digits - The digits to use to generate the primary part of the sequence
+        digits_repeat - how many digits to use from 'digits' that repeat in the sequence
+        count - how many times to repeat the above sequence
+        prefix_digits - Just like above but will prefix the sequence with another sequence
+        prefix_repeat - how many digits to use from 'prefix_digits' to create the prefix
+
+    Usage:
+        To generate the sequence (among similar others):
+            3, 1, 2, 1, 2, 1, 2, 1, 2
+
+        for seq in integer_sequence([1,2,3], 2, 4, [3], 1):
+            print(seq)
+
+        (3, 1, 1, 1, 1, 1, 1, 1, 1)
+        (3, 1, 2, 1, 2, 1, 2, 1, 2) << ---
+        (3, 2, 1, 2, 1, 2, 1, 2, 1)  
+        (3, 2, 2, 2, 2, 2, 2, 2, 2)
+    """
+    for prefix in itertools.product(prefix_digits, repeat=prefix_repeat):
+        for pattern in itertools.product(digits, repeat=digits_repeat):
+            yield prefix + pattern * count
         
 
 if __name__ == "__main__":
@@ -165,15 +216,18 @@ if __name__ == "__main__":
     assert (res == 86), f'Expected {res} == 86'
 
     # phi
-    res = solve((1,0,0), (1,0,0), (0,200), continued_fraction)
+    a_seq, b_seq = solve((1,0,0), (1,0,0), (0,200))
+    res = continued_fraction(a_seq, b_seq)
     assert(res == mpmath.phi)
 
     # e
-    res = solve((3,1,0), (0,-1,0), (0,200), continued_fraction)
+    a_seq, b_seq = solve((3,1,0), (0,-1,0), (0,200))
+    res = continued_fraction(a_seq, b_seq)
     assert(res == mpmath.e)
 
     # rational function for e
-    res = solve((0,1,0), (1,0,0), mpmath.e, rational_function)
+    a_seq, b_seq = solve((0,1,0), (1,0,0), mpmath.e)
+    res = rational_function(a_seq, b_seq)
     assert(res == mpmath.e)
 
     coeff_iter = coefficients([[ [-4,4], [-3,3], [-2,2] ]])
@@ -190,18 +244,27 @@ if __name__ == "__main__":
 
     a = [-6.0, -11.0, -22.0, -39.0, -62.0, -91.0, -126.0, -167.0, -214.0, -267.0, -326.0, -391.0, -462.0, -539.0, -622.0, -711.0, -806.0, -907.0, -1014.0, -1127.0]
     b = [-1.0, -3.0, -7.0, -13.0, -21.0, -31.0, -43.0, -57.0, -73.0, -91.0, -111.0, -133.0, -157.0, -183.0, -211.0, -241.0, -273.0, -307.0, -343.0, -381.0]
-    res = continued_radical(a, b)
+    res = nested_radical(a, b)
     assert (mpmath.mp.dps == 15), "The assertion below assumes a 15 digit precision"
     assert (res == mpc(real='0.9601180197880006', imag='-3.1130999018855658'))
     # Paul's algo got this:
     # assert (res == mpc(real='-8.7695632738087319', imag='-5.977884644068614'))
 
     # Find phi
-    res = solve((1,0,0), (1,0,0), (0,201), continued_radical)
+    a_seq, b_seq = solve((1,0,0), (1,0,0), (0,201))
+    res = nested_radical(a_seq, b_seq)
     assert(res == mpf(mpmath.phi))
 
     # Finds 3  (Ramanujan’s nested radical)
-    res = solve((1,0,0), (2,1,0), (0,200), continued_radical)
+    a_seq, b_seq = solve((1,0,0), (2,1,0), (0,200))
+    res = nested_radical(a_seq, b_seq)
     assert(res == 3)
+
+    seq = list(integer_sequence([1,2,3], 2, 4, [3], 1))
+    assert(seq == [(3, 1, 1, 1, 1, 1, 1, 1, 1), (3, 1, 2, 1, 2, 1, 2, 1, 2), (3, 1, 3, 1, 3, 1, 3, 1, 3), (3, 2, 1, 2, 1, 2, 1, 2, 1), (3, 2, 2, 2, 2, 2, 2, 2, 2), (3, 2, 3, 2, 3, 2, 3, 2, 3), (3, 3, 1, 3, 1, 3, 1, 3, 1), (3, 3, 2, 3, 2, 3, 2, 3, 2), (3, 3, 3, 3, 3, 3, 3, 3, 3)])
+
+    seq = list(integer_sequence([1,2],2,200,[1],1))
+    res = continued_fraction(seq[1])
+    assert(res == mpmath.sqrt(3))
 
     print('All algorithms tests passed')
