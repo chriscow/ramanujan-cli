@@ -4,6 +4,9 @@ import mpmath
 from mpmath import mpf, mpc
 
 const_map = {
+    mpmath.sqrt(3):'√3',
+    mpmath.sqrt(5):'√5',
+    mpmath.sqrt(7):'√7',
     mpf(mpmath.phi):'Φ',
     mpf(mpmath.e):'e',
     mpf(mpmath.euler):'ℇ',
@@ -42,6 +45,8 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
 
 def cont_frac_to_string(a, b, result=None):
 
+    a = a[:4]
+    b = b[:4]
     sign = ['+' if i > 0 else '-' for i in b] # get the sign
     b = [mpmath.fabs(i) for i in b]  # now normalize the sign for b (make it positive)
 

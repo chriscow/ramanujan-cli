@@ -20,29 +20,25 @@ def run(side, db, use_constants, debug=False, silent=False):
     precision  = config.hash_precision
     const_type = type(mpmath.e)
 
-    a_gen = side.generator.a.algorithm
-    a_args = side.generator.a.arguments
-    b_gen = side.generator.b.algorithm
-    b_args = side.generator.b.arguments
+    a_gen = side["a_sequence"]["generator"]
+    a_args = side["a_sequence"]["arguments"]
+    b_gen = side["b_sequence"]["generator"]
+    b_args = side["b_sequence"]["arguments"]
 
-    black_list = side.black_list
-    run_postproc = side.run_postproc_functions
+    black_list = side["black_list"]
+    run_postproc = side["run_postproc"]
 
     print(f'''
 
     hash precision: {config.hash_precision}
-    algorithm: {','.join([algo.__name__ for algo in side.algorithms])}
-    poly A coeff range: {a_range[0]}
-    poly B coeff range: {b_range[0]}
-    run post proc f(x)?: {side.run_postproc_functions}
+    algorithm: {','.join([algo.__name__ for algo in side["algorithms"]])}
+    run post proc f(x)?: {side["run_postproc"]}
     
     ''')
     
     work = set()
 
-use constants array as poly_range in lhs.generator.arguments
-
-    for algo in side.algorithms:
+    for algo in side["algorithms"]:
 
         if use_constants:
             count = 0
@@ -50,14 +46,19 @@ use constants array as poly_range in lhs.generator.arguments
             # Loop through the list of constants in the config file.  The constant
             # value is used for the 'polynomial range' as a single value
             for const in config.constants:
-
+                
                 # Determine if we are using a constant mpmath value or a decimal
                 try:
                     # if it can be cast to a float, then convert it to mpf
                     float(const)
                     const = mpf(const)
                 except ValueError:
-                    pass # leave as a string - will eval in generator
+                    # we have a constant like 'mpmath.phi'
+                    const = mpf(eval(const))
+
+                # Total hack  :(
+                a_args[1] = const
+                b_args[1] = const
 
                 # queue_work generates several jobs based on the a and b ranges
                 work |= _queue_work(db, precision, algo.__name__, 

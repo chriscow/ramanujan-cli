@@ -156,8 +156,12 @@ def polynomial_sequence(coeff_range, poly_x_values):
     result = []
 
     # check if we received an instance of mpmath constant
-    if isinstance(poly_x_values[0], str):
-        const = eval(poly_x_values[0])
+    if isinstance(poly_x_values, str) or isinstance(poly_x_values, mpf):
+        if isinstance(poly_x_values, str):
+            const = eval(poly_x_values)
+        else:
+            const = poly_x_values
+
         for coeffs in coefficients(coeff_range):
             result.append( solve_polynomial(coeffs[0], const) )
     else:
@@ -190,9 +194,14 @@ def integer_sequence(digits, digits_repeat, count, prefix_digits = [], prefix_re
         (3, 2, 1, 2, 1, 2, 1, 2, 1)  
         (3, 2, 2, 2, 2, 2, 2, 2, 2)
     """
+    results = []
+
     for prefix in itertools.product(prefix_digits, repeat=prefix_repeat):
+        result = [x for x in prefix]
         for pattern in itertools.product(digits, repeat=digits_repeat):
-            yield prefix + pattern * count
+            results.append( result + [x for x in pattern * count] )
+
+    return results
         
 
 if __name__ == "__main__":

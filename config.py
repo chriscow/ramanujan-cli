@@ -13,13 +13,10 @@ class Config(object): pass
 hash_precision = 8
 
 
-
-
-lhs = Config()
-
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
 constants = [
+'mpmath.sqrt(3)',
 'mpmath.phi', 
 'mpmath.e',
 'mpmath.euler', 
@@ -74,16 +71,27 @@ constants = [
 '30.424876125859513210311897530584091320181560023715440180962146036993329389333277920290584293902089110630991711527395499117633226671186319391807225956714243341155906854681365580724173498447249593190408116323150197023484841630221400985620739718392018133021868063298225719752250023746856136974712496442622977924504057490671534572788651506516083246879706281778104577772258789192373862900112760309735680890492530064612892727530919447902003589389819427495511323917384271638108400499211198006924387188729695970002910005477427068908168462593483850770799656037339265916317859005583905968157207307962526205494009595158923181955070031204385472912847073737931700052460469858203860095171051337905912538151203525649548068653947457306442869841989012474276200924947673637581472033220866876014572657774071196727343504792345035161879811455794448693261212914417916583251901867849867644777729648215979712565041026341481014213352401333833266814485615449144877122011828407076516476221131280807023768331017097022722833154052850963731871619582513781'
 ]
 
+lhs = {
+    "algorithms": [algorithms.rational_function],
 
-# Ignore lhs results that equal these values
-lhs.black_list = set([-2, -1, 0, 1, 2])
+    # Take the left-side algorithm result and run it through all the functions in postproc.py
+    # and save those values too.  Takes much longer though
+    "run_postproc": False,
 
-lhs.algorithms = [algorithms.rational_function] 
+    # If the algorithm (or postproc functions) results in any of these values, 
+    # don't store it
+    "black_list": set([-2, -1, 0, 1, 2]),
 
+    "a_sequence": {
+        "generator": algorithms.polynomial_sequence,
+        "arguments": [ [[ [0,1], [1,2], [0,1] ]], None ]
+    },
 
-# Take the left-side algorithm result and run it through all the functions in postproc.py
-# and save those values too.  Takes much longer though
-lhs.run_postproc_functions=False
+    "b_sequence": {
+        "generator": algorithms.polynomial_sequence,
+        "arguments": [ [[ [1,2], [0,1], [0,1] ]], None ]
+    }
+}
 
 #
 # The ranges below define the ranges of the coefficients in reverse order.
@@ -95,8 +103,8 @@ lhs.run_postproc_functions=False
 #
 
 # This range simply searches for the constant
-lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
-lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
+# lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
+# lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
 
 #                     
 # Finds  e / (e - 2)  3.784422382354666325454672914929687976837158203125
@@ -126,11 +134,12 @@ lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
 # lhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
 # lhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
 
-lhs.generator = Config()
-lhs.generator.a.algorithm = algorithms.polynomial_sequence
-lhs.generator.a.arguments = (lhs.a_range, range(0, 51))
-lhs.generator.b.algorithm = algorithms.polynomial_sequence
-lhs.generator.b.arguments = (lhs.b_range, range(0, 51))
+# lhs.a_generator = Config()
+# lhs.b_generator = Config()
+# lhs.a_generator.algorithm = algorithms.polynomial_sequence
+# lhs.a_generator.arguments = (lhs.a_range, constants)
+# lhs.b_generator.algorithm = algorithms.polynomial_sequence
+# lhs.b_generator.arguments = (lhs.b_range, constants)
 
 # # # # # #
 #
@@ -138,19 +147,27 @@ lhs.generator.b.arguments = (lhs.b_range, range(0, 51))
 #
 # # # # # #
 
+rhs = {
+    "algorithms": [algorithms.nested_radical, algorithms.continued_fraction],
 
-rhs = Config()
+    # Take the left-side algorithm result and run it through all the functions in postproc.py
+    # and save those values too.  Takes much longer though
+    "run_postproc": False,
 
-rhs.algorithms = [algorithms.nested_radical, algorithms.continued_fraction]
+    # If the algorithm (or postproc functions) results in any of these values, 
+    # don't store it
+    "black_list": set([-2, -1, 0, 1, 2]),
 
-# Take the left-side algorithm result and run it through all the functions in postproc.py
-# and save those values too.  Takes much longer though
-rhs.run_postproc_functions=False
+    "a_sequence": {
+        "generator": algorithms.integer_sequence,
+        "arguments": ( [1,2], 2, 50, [3], 1 )
+    },
 
-
-# If the algorithm (or postproc functions) results in any of these values, 
-# don't store it
-rhs.black_list = set([-2, -1, 0, 1, 2])
+    "b_sequence": {
+        "generator": algorithms.polynomial_sequence,
+        "arguments": ([[ [1,2], [0,1], [0,1] ]], range(0, 101))
+    }
+}
 
 
 
@@ -189,8 +206,8 @@ rhs.black_list = set([-2, -1, 0, 1, 2])
 # rhs.b_range = [[ [1,2], [0,1], [0,1] ]]
 
 # just enough range to generate BOTH phi and e
-rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
-rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
+# rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
+# rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
 
 # don't do this one yet ...  
 #       ____
@@ -202,11 +219,3 @@ rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
 #      `LLLU'
 # rhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
 # rhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
-
-
-rhs.generator = Config()
-rhs.generator.a.algorithm = algorithms.polynomial_sequence
-rhs.generator.a.arguments = (rhs.a_range, range(0, 51))
-rhs.generator.b.algorithm = algorithms.polynomial_sequence
-rhs.generator.b.arguments = (rhs.b_range, range(0, 51))
-

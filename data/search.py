@@ -179,7 +179,7 @@ def run(max_precision=50, debug=False, silent=False):
             # sequence generator function name and args
             func_name, func_args = lhs_a_gen
             poly_range, poly_x_values = eval(func_args)
-            const = eval(poly_x_values[0])
+            const = poly_x_values
 
 
             post = postprocs[rhs_post].__name__ + '(x) <== '
