@@ -1,14 +1,14 @@
 FROM python:3
 
 # Install Python dependencies
-RUN pip install rq
-RUN pip install supervisor
+RUN pip3 install rq
+RUN pip3 install supervisor
 
 RUN mkdir /app
 COPY . /app
 WORKDIR /app
 
-RUN pip install pipenv
+RUN pip3 install pipenv
 RUN pipenv install --system --deploy --ignore-pipfile
 
 # Spawn workers according to config

@@ -20,10 +20,8 @@ def run(side, db, use_constants, debug=False, silent=False):
     precision  = config.hash_precision
     const_type = type(mpmath.e)
 
-    a_gen = side["a_sequence"]["generator"]
-    a_args = side["a_sequence"]["arguments"]
-    b_gen = side["b_sequence"]["generator"]
-    b_args = side["b_sequence"]["arguments"]
+    a_sequences = side["a_sequences"]
+    b_sequences = side["b_sequences"]
 
     black_list = side["black_list"]
     run_postproc = side["run_postproc"]
@@ -40,49 +38,57 @@ def run(side, db, use_constants, debug=False, silent=False):
 
     for algo in side["algorithms"]:
 
-        if use_constants:
-            count = 0
+        for a_sequence, b_sequence in itertools.product(a_sequences, b_sequences):
 
-            # Loop through the list of constants in the config file.  The constant
-            # value is used for the 'polynomial range' as a single value
-            for const in config.constants:
-                
-                # Determine if we are using a constant mpmath value or a decimal
-                try:
-                    # if it can be cast to a float, then convert it to mpf
-                    float(const)
-                    const = mpf(const)
-                except ValueError:
-                    # we have a constant like 'mpmath.phi'
-                    const = mpf(eval(const))
+            a_gen  = a_sequence["generator"]
+            a_args = a_sequence["arguments"]
+            b_gen  = b_sequence["generator"]
+            b_args = b_sequence["arguments"]
 
-                # Total hack  :(
-                a_args[1] = const
-                b_args[1] = const
+            if use_constants:
+                count = 0
 
-                # queue_work generates several jobs based on the a and b ranges
+                # Loop through the list of constants in the config file.  The constant
+                # value is used for the 'polynomial range' as a single value
+                for const in config.constants:
+                    
+                    # Determine if we are using a constant mpmath value or a decimal
+                    try:
+                        # if it can be cast to a float, then convert it to mpf
+                        float(const)
+                        const = mpf(const)
+                    except ValueError:
+                        # we have a constant like 'mpmath.phi'
+                        const = mpf(eval(const))
+
+                    # Total hack  :(
+                    a_args[1] = const
+                    b_args[1] = const
+
+                    # queue_work generates several jobs based on the a and b ranges
+                    work |= _queue_work(db, precision, algo.__name__, 
+                        a_gen, a_args, 
+                        b_gen, b_args, 
+                        black_list, run_postproc, 
+                        debug=debug, silent=True)
+                    count += 1
+
+                    if not silent:
+                        utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
+            else:
                 work |= _queue_work(db, precision, algo.__name__, 
                     a_gen, a_args, 
                     b_gen, b_args, 
                     black_list, run_postproc, 
-                    debug=debug, silent=True)
-                count += 1
-
-                if not silent:
-                    utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
-        else:
-            work |= _queue_work(db, precision, algo.__name__, 
-                a_gen, a_args, 
-                b_gen, b_args, 
-                black_list, run_postproc, 
-                debug=debug, silent=silent)
+                    debug=debug, silent=silent)
 
     return work
 
 
 def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, b_gen_args, black_list, run_postproc, debug=False, silent=False):
     '''
-    Queues the algorithm calculations to be run and stored in the database.
+    Calls the generator for the a-sequence and b-sequence, then
+    queues the algorithm calculations to be run and stored in the database.
     '''
 
     # Each job will contain this many a/b coefficient pairs

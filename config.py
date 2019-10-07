@@ -15,8 +15,7 @@ hash_precision = 8
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
-constants = [
-'mpmath.sqrt(3)',
+constants = [ '3', '5', '7',
 'mpmath.phi', 
 'mpmath.e',
 'mpmath.euler', 
@@ -76,21 +75,25 @@ lhs = {
 
     # Take the left-side algorithm result and run it through all the functions in postproc.py
     # and save those values too.  Takes much longer though
-    "run_postproc": False,
+    "run_postproc": True,
 
     # If the algorithm (or postproc functions) results in any of these values, 
     # don't store it
     "black_list": set([-2, -1, 0, 1, 2]),
 
-    "a_sequence": {
+    "a_sequences": [
+        {
         "generator": algorithms.polynomial_sequence,
         "arguments": [ [[ [0,1], [1,2], [0,1] ]], None ]
-    },
+        }
+    ],
 
-    "b_sequence": {
+    "b_sequences": [
+        {
         "generator": algorithms.polynomial_sequence,
         "arguments": [ [[ [1,2], [0,1], [0,1] ]], None ]
-    }
+        }
+    ]
 }
 
 #
@@ -158,15 +161,27 @@ rhs = {
     # don't store it
     "black_list": set([-2, -1, 0, 1, 2]),
 
-    "a_sequence": {
-        "generator": algorithms.integer_sequence,
-        "arguments": ( [1,2], 2, 50, [3], 1 )
-    },
+    "a_sequences": [  # Sequence lengths all need to match (b can be + 1 in length)
+        {
+            "generator": algorithms.integer_sequence, # integer sequence of 201 digits:
+            "arguments": ( [1,2], 2, 100, [1], 1 )    # 2 digit repeating 100x sequence plus a single
+        },
+        # {
+        #     "generator": algorithms.polynomial_sequence,
+        #     "arguments": ([[ [1,4], [0,2], [0,1] ]], range(0, 201))
+        # }
+    ],
 
-    "b_sequence": {
-        "generator": algorithms.polynomial_sequence,
-        "arguments": ([[ [1,2], [0,1], [0,1] ]], range(0, 101))
-    }
+    "b_sequences": [
+        {
+            "generator": algorithms.polynomial_sequence,
+            "arguments": ([[ [1,2], [0,1], [0,1] ]], range(0, 201))
+        }
+        # { 
+        #     "generator": algorithms.polynomial_sequence,
+        #     "arguments": ([[ [0,2], [-1,1], [0,1] ]], range(0, 201))
+        # },
+    ]
 }
 
 
@@ -175,7 +190,21 @@ rhs = {
 #                    C   +  Bx   + Ax^2
 #
 
-# rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]] # first range is -2,4 so it finds e
+
+# Finds sqrt(3)
+    # "a_sequence": {
+    #     "generator": algorithms.integer_sequence,
+    #     "arguments": ( [1,2], 2, 50, [1], 1 )
+    # },
+
+    # "b_sequence": {
+    #     "generator": algorithms.polynomial_sequence,
+    #     "arguments": ([[ [1,2], [0,1], [0,1] ]], range(0, 101))
+    # }
+
+# Generic -2 >> 2 range except little larger range for constant
+# in the a_range so that it finds e also.
+# rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]]
 # rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
 
 # nested radical finds 3

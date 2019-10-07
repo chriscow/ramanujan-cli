@@ -52,8 +52,8 @@ def continued_fraction(a, b=None):
             b = b[1:]
 
     if len(a) == len(b) + 1:
-        res = a[-1]
-        a = a[:-1]
+        res = a[-1]  # result starts with the end of the a sequence
+        a = a[:-1]   # remove one element so they are same length now
 
     if len(a) != len(b):
         raise ValueError(f'Expected len(a) == len(b) a:{len(a)} b:{len(b)}')

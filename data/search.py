@@ -84,8 +84,6 @@ def run(max_precision=50, debug=False, silent=False):
 
     if not silent:
         utils.printProgressBar(lhs_size, lhs_size, suffix=f'                          ')
-        print()
-        print(f'Found {len(matches)} matches at {mpmath.mp.dps} decimal places')
 
     '''
     # 'matches()' contains the arguments where the values matched exactly
@@ -154,6 +152,9 @@ def run(max_precision=50, debug=False, silent=False):
         
         matches = bigger_matches
     '''
+
+    rhs_cache = set()
+
     # By the time we reach here, if there were any high-precision matches, 
     # dump out the data to the screen
     mpmath.mp.dps = 15 # back to default
@@ -166,6 +167,9 @@ def run(max_precision=50, debug=False, silent=False):
         print('')
         print('-' * 60)
         print('')
+
+        lhs_output = ''
+        rhs_output = ''
 
         #
         # output the fancy version for known functions
@@ -182,19 +186,19 @@ def run(max_precision=50, debug=False, silent=False):
             const = poly_x_values
 
 
-            post = postprocs[rhs_post].__name__ + '(x) <== '
-            if rhs_post == 0: #identity
+            post = postprocs[lhs_post].__name__ + f'( {const} ) == '
+            if lhs_post == 0: #identity
                 post = ''
 
-            if const in utils.const_map:
-                const = f'{utils.const_map[const]} = {const}'
+            if lhs_result in utils.const_map:
+                lhs_result = f'{utils.const_map[lhs_result]} = {lhs_result}'
             
-            if denominator != '1':
-                print(f'LHS: {const} {post} {numerator} / {denominator}')
+            if denominator != 1:
+                lhs_output = f'LHS: {post} {lhs_result}  ==>  {numerator} / {denominator}'
             else:
-                print(f'LHS: {const} {post} {numerator}')
+                lhs_output = f'LHS: {post} {lhs_result}'
         else:
-            print(f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_coeff} b:{lhs_b_coeff}))')
+            lhs_output = f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_gen} b:{lhs_b_gen}))'
 
         a, b = eval(rhs_args)
         if rhs_algo_id == 1: # continued fraction
@@ -203,18 +207,28 @@ def run(max_precision=50, debug=False, silent=False):
             if rhs_post == 0: #identity
                 post = ''
 
-            print(f'RHS: {post} {cont_frac}')
+            rhs_output = f'RHS: {post} {cont_frac}'
         elif rhs_algo_id == 2: # nested radical
             nest_rad = utils.nested_radical_to_string(a, b, rhs_result)
             post = postprocs[rhs_post].__name__ + '(x) <== '
             if rhs_post == 0: #identity
                 post = ''
 
-            print(f'RHS: {post} {nest_rad}')
+            rhs_output = f'RHS: {post} {nest_rad}'
         else:
-            print(f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_coeff} b:{rhs_b_coeff})) for x => poly range:{poly_range}')
-        print('')
+            rhs_output = f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_gen} b:{rhs_b_gen})) for x => poly range:{poly_range}'
+        
+        if rhs_output in rhs_cache:
+            print('DUPLICATE:')
+
+        print(lhs_output)
+        print(rhs_output)
+        rhs_cache.add(rhs_output)
+        print()
     
+    print(f'Found {len(rhs_cache)} matches at {mpmath.mp.dps} decimal places')
+    print()
+
 
 
     
