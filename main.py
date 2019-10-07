@@ -27,8 +27,8 @@ def check_environment():
     '''
     dotenv.load_dotenv()
 
-    if os.getenv('DOCKER') is None:
-        os.environ['REDIS_HOST'] = 'localhost'
+    #if os.getenv('DOCKER') is None:
+    #    os.environ['REDIS_HOST'] = 'localhost'
 
     if os.getenv('RHS_DB') is None:
         print('Creating default .env file ...')
