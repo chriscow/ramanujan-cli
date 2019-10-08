@@ -18,7 +18,7 @@ ENV LANG=C.UTF-8
 
 
 RUN apt-get -q update >/dev/null \
-    && apt-get install -y python3 python3-dev curl build-essential git supervisor redis-server \
+    && apt-get install -y python3 python3-dev nano curl build-essential git supervisor redis-server \
     && curl https://bootstrap.pypa.io/get-pip.py | python3 \
     && curl https://bootstrap.pypa.io/get-pip.py | python \
     # Cleanup
@@ -31,5 +31,5 @@ RUN mkdir /ramanujan-cli
 COPY . /ramanujan-cli
 WORKDIR /ramanujan-cli
 
-RUN pip install pipenv
+RUN pip3 install pipenv
 RUN pipenv install --system --deploy --ignore-pipfile
