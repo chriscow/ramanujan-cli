@@ -12,6 +12,8 @@ class Config(object): pass
 
 hash_precision = 8
 
+max_workqueue_size = 100
+
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
