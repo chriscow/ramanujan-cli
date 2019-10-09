@@ -161,7 +161,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     return work
 
 def enqueue(*argv):
-    redis_conn = Redis(connection_pool=redis_pool)
+    redis_conn = Redis(connection_pool=redis_pool, db=os.getenv('WORK_QUEUE_DB'))
     q = Queue(connection=redis_conn)
     
     retry_time = 1  # seconds
