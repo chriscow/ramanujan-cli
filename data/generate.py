@@ -13,6 +13,9 @@ import config
 import jobs
 import utils
 
+import dotenv
+dotenv.load_dotenv()
+
 work_queue_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('WORK_QUEUE_DB'))
 
 def run(side, db, use_constants, debug=False, silent=False):
