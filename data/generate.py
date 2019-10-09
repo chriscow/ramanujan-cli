@@ -1,4 +1,5 @@
 import os
+import time
 import itertools
 
 import mpmath
@@ -97,9 +98,6 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     arg_list = []  # holds a subset of the coefficient a-range
     work = set()  # set of all jobs queued up to know when we are done
 
-    redis_conn = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
-    q = Queue(connection=redis_conn)
-
     gen_data = repr( (a_generator, a_gen_args, b_generator, b_gen_args) )
 
     # Generate the sequences
@@ -130,11 +128,13 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
                     black_list, run_postproc)
             else:
                 # adding .delay after the function name queues it up to be 
-                # executed by a Celery worker in another process / machine            
-                job = q.enqueue(jobs.store, db, precision, algo_name, arg_list, 
-                    (a_generator.__name__, repr(a_gen_args)),
-                    (b_generator.__name__, repr(b_gen_args)),
-                    black_list, run_postproc)
+                # executed by a Celery worker in another process / machine 
+                retry = True
+                while retry:
+                    job = enqueue(db, precision, algo_name, arg_list, 
+                        (a_generator.__name__, repr(a_gen_args)),
+                        (b_generator.__name__, repr(b_gen_args)),
+                        black_list, run_postproc)
                 
                 work.add(job)   # hold onto the job info
 
@@ -152,7 +152,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
                 (b_generator.__name__, repr(b_gen_args)),
                 black_list, run_postproc)
         else:
-            job = q.enqueue(jobs.store, db, precision, algo_name, arg_list,
+            job = enqueue(db, precision, algo_name, arg_list,
                     (a_generator.__name__, repr(a_gen_args)),
                     (b_generator.__name__, repr(b_gen_args)),
                     black_list, run_postproc)
@@ -160,6 +160,27 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
             work.add(job) 
 
     return work
+
+def enqueue(*argv):
+    redis_conn = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
+    q = Queue(connection=redis_conn)
+    
+    retry_time = 1  # seconds
+
+    while retry_time < 600:
+        try:
+            job = q.enqueue(jobs.store, *argv)
+            return job
+        except Exception as err:
+            print(err)
+            print(f'Retrying enqueue in {retry_time} seconds...')
+            time.sleep(retry_time)
+            retry_time *= 5
+
+    raise Exception('Redis server seems to have died. Cannot enqueue.')
+    
+
+
 
 
 if __name__ == '__main__':

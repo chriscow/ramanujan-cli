@@ -20,7 +20,7 @@ def ping(timestamp):
     return timestamp
 
 
-def store(db, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_postproc):
+def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_postproc):
     '''
     This method is queued up by the master process to be executed by a Celery worker.
 
@@ -29,9 +29,6 @@ def store(db, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_post
     result through all the postproc.py functions to alter the result and stores
     all those too.
     '''
-
-    # The db number passed in indicated whether we are working on the left or right
-    db = HashtableWrapper(db=db, accuracy=accuracy)
 
     # Get the actual function from the name passed in
     algo = getattr(algorithms, algo_name)
@@ -101,7 +98,7 @@ def store(db, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_post
             # finally, send the keys and values to redis
             for key in keys:
                 redis_start = datetime.now()
-                db.set(key, algo_data)
+                save(dbId, accuracy, key, algo_data)
                 redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
             # bail out early if we are not running the post-proc functions
@@ -116,6 +113,24 @@ def store(db, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_post
     logging.info(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
     # return test
 
+def save(dbId, accuracy, key, algo_data):
+
+    # The db number passed in indicated whether we are working on the left or right
+    db = HashtableWrapper(db=dbId, accuracy=accuracy)
+
+    retry_time = 1  # seconds
+
+    while retry_time < 600:
+        try:
+            db.set(key, algo_data)
+            break
+        except Exception as err:
+            print(err)
+            print(f'Retrying save in {retry_time} seconds...')
+            time.sleep(retry_time)
+            retry_time *= 5
+
+    raise Exception('Redis server died. Cannot save.')
 
 
 def wait(work, silent):
