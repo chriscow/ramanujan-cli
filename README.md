@@ -51,3 +51,6 @@ you will need to restart the services with:
 `python -c "from redis import Redis; from rq import Queue; import utils; import time; q = Queue(connection=Redis(host='redis')); utils.polynomial_to_string((3,4,5),6);"`
 
 `python -c "from redis import Redis; from rq import Queue; import utils; import time; q = Queue(connection=Redis(host='redis')); print(utils.polynomial_to_string((3,4,5),6)); job = q.enqueue(utils.polynomial_to_string, (3,4,5),6); print(job.get_status()); time.sleep(2); print(job.result); print(job.get_status())"`
+
+## SSH Tunnel
+ssh -L local_port:remote_address:remote_port username@server.com
