@@ -13,7 +13,7 @@ import config
 import jobs
 import utils
 
-redis_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('WORK_QUEUE_DB'))
+work_queue_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('WORK_QUEUE_DB'))
 
 def run(side, db, use_constants, debug=False, silent=False):
     '''
@@ -161,7 +161,8 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     return work
 
 def enqueue(*argv):
-    redis_conn = Redis(connection_pool=redis_pool, db=os.getenv('WORK_QUEUE_DB'))
+    global work_queue_pool
+    redis_conn = Redis(connection_pool=work_queue_pool)
     q = Queue(connection=redis_conn)
     
     retry_time = 1  # seconds
