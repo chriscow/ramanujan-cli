@@ -11,6 +11,8 @@ click = "*"
 redis = "*"
 python-dotenv = "*"
 mpmath = "*"
+supervisord = "*"
+supervisor = "*"
 
 [requires]
 python_version = "3.6"

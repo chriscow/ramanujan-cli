@@ -4,6 +4,7 @@ import dotenv
 import mpmath
 from mpmath import mpf, mpc
 
+redis_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('WORK_QUEUE_DB'))
 
 '''
 This simply wraps calls to redis to make it look a little more like a data.
@@ -19,10 +20,12 @@ class HashtableWrapper():
     
     def __init__(self, db, accuracy):
 
+        global redis_pool
+
         CONFIG_DB = int(os.getenv('CONFIG_DB'))
 
-        self.config = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=CONFIG_DB)
-        self.redis = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=db)
+        self.config = redis.Redis(connection_pool=redis_pool, db=CONFIG_DB)
+        self.redis = redis.Redis(connection_pool=redis_pool, db=db)
 
         # If the database is empty, then set the initial value
         if self.get_accuracy() is None:

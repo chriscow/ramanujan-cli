@@ -5,13 +5,15 @@ import itertools
 import mpmath
 from mpmath import mpf, mpc
 
-from redis import Redis
+from redis import Redis, ConnectionPool
 from rq import Queue
 
 import algorithms
 import config
 import jobs
 import utils
+
+redis_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('WORK_QUEUE_DB'))
 
 def run(side, db, use_constants, debug=False, silent=False):
     '''
@@ -162,7 +164,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     return work
 
 def enqueue(*argv):
-    redis_conn = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
+    redis_conn = Redis(connection_pool=redis_pool)
     q = Queue(connection=redis_conn)
     
     retry_time = 1  # seconds
