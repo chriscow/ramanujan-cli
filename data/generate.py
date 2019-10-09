@@ -45,6 +45,10 @@ def run(side, db, use_constants, debug=False, silent=False):
     for algo in side["algorithms"]:
         for a_sequence, b_sequence in itertools.product(a_sequences, b_sequences):
 
+            if len(work) > 10000:
+                yield work
+                work.clear()
+            
             a_gen  = a_sequence["generator"]
             a_args = a_sequence["arguments"]
             b_gen  = b_sequence["generator"]
