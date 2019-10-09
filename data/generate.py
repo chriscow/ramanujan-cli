@@ -172,7 +172,7 @@ def enqueue(*argv):
 
     while retry_time < 600:
         try:
-            job = q.enqueue(jobs.store, *argv, result_ttl=10)
+            job = q.enqueue(jobs.store, *argv, result_ttl=86400)
             return job
         except Exception as err:
             print(err)
