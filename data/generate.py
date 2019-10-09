@@ -118,7 +118,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
 
     for args in all_args:
 
-        if len(work) > 100:
+        if len(work) > config.max_workqueue_size:
             yield work
             work.clear()
 
