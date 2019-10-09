@@ -1,0 +1,5 @@
+Click==7.0
+mpmath==1.1.0
+python-dotenv==0.10.3
+redis==3.3.8
+rq==1.1.0
