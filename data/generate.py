@@ -40,14 +40,8 @@ def run(side, db, use_constants, debug=False, silent=False):
     
     ''')
     
-    work = set()
-
     for algo in side["algorithms"]:
         for a_sequence, b_sequence in itertools.product(a_sequences, b_sequences):
-
-            if len(work) > 10000:
-                yield work
-                work.clear()
             
             a_gen  = a_sequence["generator"]
             a_args = a_sequence["arguments"]
@@ -75,23 +69,26 @@ def run(side, db, use_constants, debug=False, silent=False):
                     b_args[1] = const
 
                     # queue_work generates several jobs based on the a and b ranges
-                    work |= _queue_work(db, precision, algo.__name__, 
-                        a_gen, a_args, 
-                        b_gen, b_args, 
-                        black_list, run_postproc, 
-                        debug=debug, silent=True)
+                    for jobs in _queue_work(db, precision, algo.__name__, 
+                            a_gen, a_args, 
+                            b_gen, b_args, 
+                            black_list, run_postproc, 
+                            debug=debug, silent=True):
+                        
+                        yield jobs
+                        
                     count += 1
 
                     if not silent:
                         utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
             else:
-                work |= _queue_work(db, precision, algo.__name__, 
+                for jobs in _queue_work(db, precision, algo.__name__, 
                     a_gen, a_args, 
                     b_gen, b_args, 
                     black_list, run_postproc, 
-                    debug=debug, silent=silent)
+                    debug=debug, silent=silent):
 
-    return work
+                    yield jobs
 
 
 def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, b_gen_args, black_list, run_postproc, debug=False, silent=False):
@@ -120,6 +117,10 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     count = 1
 
     for args in all_args:
+
+        if len(work) > 10:
+            yield work
+            work.clear()
 
         arg_list.append(args)
         count += 1
@@ -165,7 +166,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
                
             work.add(job) 
 
-    return work
+    yield work
 
 def enqueue(*argv):
     global work_queue_pool
