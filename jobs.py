@@ -123,7 +123,7 @@ def save(dbId, accuracy, key, algo_data):
     while retry_time < 600:
         try:
             db.set(key, algo_data)
-            break
+            return
         except Exception as err:
             print(err)
             print(f'Retrying save in {retry_time} seconds...')
