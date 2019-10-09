@@ -84,14 +84,14 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [0,1], [1,2], [0,1] ]], None ]
+        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
         }
     ],
 
     "b_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [1,2], [0,1], [0,1] ]], None ]
+        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
         }
     ]
 }
@@ -164,23 +164,23 @@ rhs = {
     "a_sequences": [  # Sequence lengths all need to match (b can be + 1 in length)
         {
             "generator": algorithms.integer_sequence, # integer sequence of 201 digits:
-            "arguments": ( [1,2], 2, 100, [1], 1 )    # 2 digit repeating 100x sequence plus a single
+            "arguments": ( [1,2,3,4,5], 2, 100, [1,2,3,4,5], 1 )    # 2 digit repeating 100x sequence plus a single
         },
-        # {
-        #     "generator": algorithms.polynomial_sequence,
-        #     "arguments": ([[ [1,4], [0,2], [0,1] ]], range(0, 201))
-        # }
+        {
+            "generator": algorithms.polynomial_sequence,
+            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
+        }
     ],
 
     "b_sequences": [
         {
+            "generator": algorithms.integer_sequence, # integer sequence of 201 digits:
+            "arguments": ( [1,2,3,4,5], 2, 100, [1,2,3,4,5], 1 )    # 2 digit repeating 100x sequence plus a single
+        },
+        {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [1,2], [0,1], [0,1] ]], range(0, 201))
+            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
         }
-        # { 
-        #     "generator": algorithms.polynomial_sequence,
-        #     "arguments": ([[ [0,2], [-1,1], [0,1] ]], range(0, 201))
-        # },
     ]
 }
 

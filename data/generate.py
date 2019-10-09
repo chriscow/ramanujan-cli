@@ -40,7 +40,6 @@ def run(side, db, use_constants, debug=False, silent=False):
     work = set()
 
     for algo in side["algorithms"]:
-
         for a_sequence, b_sequence in itertools.product(a_sequences, b_sequences):
 
             a_gen  = a_sequence["generator"]
@@ -131,9 +130,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
             else:
                 # adding .delay after the function name queues it up to be 
                 # executed by a Celery worker in another process / machine 
-                retry = True
-                while retry:
-                    job = enqueue(db, precision, algo_name, arg_list, 
+                job = enqueue(db, precision, algo_name, arg_list, 
                         (a_generator.__name__, repr(a_gen_args)),
                         (b_generator.__name__, repr(b_gen_args)),
                         black_list, run_postproc)
