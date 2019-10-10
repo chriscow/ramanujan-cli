@@ -4,6 +4,8 @@ import dotenv
 import mpmath
 from mpmath import mpf, mpc
 
+dotenv.load_dotenv()
+
 config_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('CONFIG_DB'))
 lhs_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('LHS_DB'))
 rhs_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('RHS_DB'))
