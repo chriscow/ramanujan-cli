@@ -60,8 +60,8 @@ def run(max_precision=50, debug=False, silent=False):
             #   - b generator method and args
 
             # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
-            _,_,lhs_result,_,_,_ = eval(lhs_val)
-            _,_,rhs_result,_,_,_ = eval(rhs_val)
+            _,lhs_postproc_id,lhs_result,_,_,_ = eval(lhs_val)
+            _,rhs_postproc_id,rhs_result,_,_,_ = eval(rhs_val)
 
             # Check the absolute value of both sides and make sure they are the same
             # if mpmath.fabs(lhs_result)[:8] == mpmath.fabs(rhs_result):
@@ -70,7 +70,13 @@ def run(max_precision=50, debug=False, silent=False):
             rhs_result = mpmath.fabs(rhs_result)
 
             if str(lhs_result)[:mpmath.mp.dps - 2] == str(rhs_result)[:mpmath.mp.dps - 2]:
-                matches.add( (lhs_val, rhs_val) )
+                # if both sides are just using the identity() post proc (noop)
+                # then add it to the matches.
+                if lhs_postproc_id == 0 and rhs_postproc_id == 0:
+                    matches.add( (lhs_val, rhs_val) )
+                elif lhs_postproc_id != rhs_postproc_id:
+                    # if both sides are not using the same postproc, also add it
+                    matches.add( (lhs_val, rhs_val) )
             else:
                 pass
                 # They don't match when we have only added the fractional part
