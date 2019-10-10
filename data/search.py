@@ -13,12 +13,20 @@ import utils
 
 from data.wrapper import HashtableWrapper
 
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
 def run(max_precision=50, debug=False, silent=False):
     '''
     We want to:
         - make a first pass and find all key matches between the two sides
         - with all matches, 
     '''
+    redis_conn = Redis(db=os.getenv('WORK_QUEUE_DB'))
+    q = Queue(connection=redis_conn)
+
     lhs_db = HashtableWrapper(os.getenv('LHS_DB'), config.hash_precision)
     rhs_db = HashtableWrapper(os.getenv('RHS_DB'), config.hash_precision)
 
@@ -35,63 +43,49 @@ def run(max_precision=50, debug=False, silent=False):
 
     cur = 0
 
+    # TODO:  Check redis to see if we have a search that was interrupted
+    # - load the matches from the previous search
+
+    work = set()
+    keymatches = key_matches(lhs_db, rhs_db, silent)
+
     # key_matches() enumerates all the keys in the hashtable from the left hand side,
     # and finds a match on the right hand side.  
-    for key, lhs_vals, rhs_vals in key_matches(lhs_db, rhs_db, silent):
+    for key, lhs_vals, rhs_vals in keymatches:
 
         # These are just for the progress bar
         cur += 1
-        cur_sub = 0
 
         # How many combinations are there we need to check? (for progress bar)
         subtotal = len(lhs_vals) * len(rhs_vals)
 
+        combinations = list(itertools.product(lhs_vals, rhs_vals))
         # Enumerates all possible combinations of left and right
-        for lhs_val, rhs_val in itertools.product(lhs_vals, rhs_vals):  
+        for chunk in chunks(combinations, config.max_workqueue_size):
 
-            # Expand the algorithm arguments etc from the data in the hashtable
-            # Underscore just means we are ignoring that entry
-            # The format of these values is:
-            #   - algorithm type_id from algorithms.py that generated the result
-            #   - postproc type_id of the function from postprocs.py that altered the result
-            #   - final calculated value
-            #   - algorithm arguments
-            #   - a_generator method and args
-            #   - b generator method and args
-
-            # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
-            _,lhs_postproc_id,lhs_result,_,_,_ = eval(lhs_val)
-            _,rhs_postproc_id,rhs_result,_,_,_ = eval(rhs_val)
-
-            # Check the absolute value of both sides and make sure they are the same
-            # if mpmath.fabs(lhs_result)[:8] == mpmath.fabs(rhs_result):
-            #     matches.add((lhs_val, rhs_val))
-            lhs_result = mpmath.fabs(lhs_result)
-            rhs_result = mpmath.fabs(rhs_result)
-
-            if str(lhs_result)[:mpmath.mp.dps - 2] == str(rhs_result)[:mpmath.mp.dps - 2]:
-                # if both sides are just using the identity() post proc (noop)
-                # then add it to the matches.
-                if lhs_postproc_id == 0 and rhs_postproc_id == 0:
-                    matches.add( (lhs_val, rhs_val) )
-                elif lhs_postproc_id != rhs_postproc_id:
-                    # if both sides are not using the same postproc, also add it
-                    matches.add( (lhs_val, rhs_val) )
+            if debug:
+                matches |= jobs.find_matches(chunk)
             else:
-                pass
-                # They don't match when we have only added the fractional part
-                # '0.33333333333'  != '3.33333333333'
-                
+                work.add(q.enqueue(jobs.find_matches, chunk, result_ttl=config.job_result_ttl))
+
             if not silent:
                 index += 1
-                cur_sub += 1
-                utils.printProgressBar(cur, lhs_size, prefix=f'{spinner[index % len(spinner)]} {key}', suffix=f'{cur_sub}/{subtotal} {cur}/{lhs_size}      ')
+                utils.printProgressBar(cur, len(keymatches), prefix=f'{spinner[index % len(spinner)]} Queueing {cur}/{len(keymatches)}', suffix=f'                          ')
+
+        if len(work) > config.max_workqueue_size:
+            for result in jobs.wait(work, silent):
+                matches |= result
+            work = set()
+
+    for result in jobs.wait(work, silent):
+        matches |= result
+
+        # update redis with our search progress so we can pick up where we left off
 
 
     if not silent:
         utils.printProgressBar(lhs_size, lhs_size, suffix=f'                          ')
 
-    '''
     # 'matches()' contains the arguments where the values matched exactly
     # at 15 decimal places (whatever is in the config)
     #
@@ -157,7 +151,6 @@ def run(max_precision=50, debug=False, silent=False):
             print(f'Found {len(bigger_matches)} matches at {mpmath.mp.dps} decimal places ...')
         
         matches = bigger_matches
-    '''
 
     rhs_cache = set()
 
@@ -247,14 +240,23 @@ def key_matches(lhs, rhs, silent):
         Three element array:
             matching key, lhs algo arguments, rhs algo arguments
     '''
-    already_searched = set() # set of fractional parts we already searched
+    count = 0
+    lhs_size = lhs.redis.dbsize()
+    result = [] # set of fractional parts we already searched
 
     for key in lhs.redis.scan_iter():
 
+        count += 1
         # *hs_vals is a list of algorithm parameters used to generate the result
         lhs_vals = lhs.get(key)
         rhs_vals = rhs.get(key)
         if rhs_vals:
-            yield (key, lhs_vals, rhs_vals)
+            result.append( (key, lhs_vals, rhs_vals) )
+
+        if not silent:
+            utils.printProgressBar(count, lhs_size, prefix=f' Loading keys')
+
+    return result
+
 
 
