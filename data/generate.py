@@ -67,6 +67,8 @@ def run(side, db, use_constants, debug=False, silent=False):
                     # Total hack  :(
                     a_args[1] = const
                     b_args[1] = const
+                    
+                    work = set()
 
                     # queue_work generates several jobs based on the a and b ranges
                     for jobs in _queue_work(db, precision, algo.__name__, 
@@ -75,12 +77,15 @@ def run(side, db, use_constants, debug=False, silent=False):
                             black_list, run_postproc, 
                             debug=debug, silent=True):
                         
-                        yield jobs
+                        work |= jobs
                         
                     count += 1
 
                     if not silent:
                         utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
+                
+                yield work
+                
             else:
                 for jobs in _queue_work(db, precision, algo.__name__, 
                     a_gen, a_args, 
