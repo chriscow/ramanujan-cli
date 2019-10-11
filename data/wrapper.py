@@ -33,7 +33,7 @@ class HashtableWrapper():
         # = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
         self.redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
         self.config = self.redis
-        self.db = db
+        self.db = str(db)
 
         # If the database is empty, then set the initial value
         if self.get_accuracy() is None:
