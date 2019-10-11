@@ -1,14 +1,15 @@
 import os
-import redis
 import dotenv
 import mpmath
 from mpmath import mpf, mpc
 
+from rediscluster import RedisCluster
+
 dotenv.load_dotenv()
 
-config_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('CONFIG_DB'))
-lhs_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('LHS_DB'))
-rhs_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('RHS_DB'))
+# config_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('CONFIG_DB'))
+# lhs_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('LHS_DB'))
+# rhs_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('RHS_DB'))
 
 
 '''
@@ -25,14 +26,14 @@ class HashtableWrapper():
     
     def __init__(self, db, accuracy):
 
-        global config_pool, lhs_pool, rhs_pool
+        # global config_pool, lhs_pool, rhs_pool
 
-        self.config = redis.Redis(connection_pool=config_pool)
-        if int(db) == int(os.getenv('LHS_DB')):
-            self.redis = redis.Redis(connection_pool=lhs_pool)
-        else:
-            self.redis = redis.Redis(connection_pool=rhs_pool)
+        startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
 
+        # = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+        self.redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+        self.config = self.redis
+        self.db = db
 
         # If the database is empty, then set the initial value
         if self.get_accuracy() is None:
@@ -106,10 +107,10 @@ class HashtableWrapper():
         acc = int(self.get_accuracy())
         history = [int(i) for i in self.get_history()]
 
-        old_keys = [ key_str[:dec_point_ind + i + 1] + '0' * (i - (len(key_str) - dec_point_ind))
+        old_keys = [ self.db + "-" + key_str[:dec_point_ind + i + 1] + '0' * (i - (len(key_str) - dec_point_ind))
                      for i in history ]
 
-        cur_key = key_str[:dec_point_ind + acc + 1] + '0' * (acc - (len(key_str) - dec_point_ind))
+        cur_key = self.db + "-" + key_str[:dec_point_ind + acc + 1] + '0' * (acc - (len(key_str) - dec_point_ind))
 
         return old_keys, cur_key
 

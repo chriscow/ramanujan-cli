@@ -11,8 +11,8 @@ click = "*"
 redis = "*"
 python-dotenv = "*"
 mpmath = "*"
-supervisord = "*"
+redis-py-cluster = "*"
 supervisor = "*"
 
 [requires]
-python_version = "3.6"
+python_version = "3.7"

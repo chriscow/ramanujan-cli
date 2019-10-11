@@ -55,5 +55,8 @@ you will need to restart the services with:
 ## SSH Tunnel
 ssh -L local_port:remote_address:remote_port username@server.com
 
+## SSH Tunnel to Redis
+ssh -i "ramanujan.pem" -L 6379:ramanujan.afnsuz.clustercfg.usw2.cache.amazonaws.com:6379 ubuntu@ec2-35-160-4-175.us-west-2.compute.amazonaws.com
 
+## SSH Tunnel to MySQL
 ssh -i "ramanujan.pem" -L 3306:ramanujan-instance-1.clv2pjyyzqqn.us-west-2.rds.amazonaws.com:3306 ec2-user@ec2-54-213-102-95.us-west-2.compute.amazonaws.com
