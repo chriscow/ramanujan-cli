@@ -35,6 +35,8 @@ class HashtableWrapper():
         self.config = self.redis
         self.db = str(db)
 
+        self._cache = {}
+
         # If the database is empty, then set the initial value
         if self.get_accuracy() is None:
             self.set_accuracy(accuracy)
@@ -184,17 +186,38 @@ class HashtableWrapper():
         value = bytes(value.__repr__(), 'utf-8')
 
         # add the value to the current key if it's not there already
-        values = self.redis.lrange(cur_key, 0, -1)  # get all list values
-        if value not in values:
-            self.redis.lpush(cur_key, value)
+        self._store(cur_key, value)
 
-        # add the value to all previous keys if it's not in any of them either
+        # values = self.redis.lrange(cur_key, 0, -1)  # get all list values
+        # if value not in values:
+        #     self.redis.lpush(cur_key, value)
+
+        # # add the value to all previous keys if it's not in any of them either
         for key in old_keys:
-            values = self.redis.lrange(key, 0, -1)
-            if value not in values:
-                self.redis.lpush(key, value)
+            self._store(key, value)
+        #     values = self.redis.lrange(key, 0, -1)
+        #     if value not in values:
+        #         self.redis.lpush(key, value)
 
         return value
+
+    def _store(self, key, value):
+        if key not in self._cache:
+            self._cache[key] = []
+        
+
+        if value not in self._cache[key]:
+            self._cache[key].append(value)
+
+    def commit(self):
+        pipe = self.redis.pipeline(transaction=False)
+        for key in self._cache.keys():
+
+            values = self.redis.lrange(key, 0, -1)
+
+            for value in self._cache[key]:
+                if value not in values:
+                    pipe.lpush(key, value)
 
 
 if __name__ == '__main__':

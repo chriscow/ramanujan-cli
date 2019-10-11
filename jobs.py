@@ -30,6 +30,8 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
     all those too.
     '''
 
+    db = HashtableWrapper(db=dbId, accuracy=accuracy)
+
     # Get the actual function from the name passed in
     algo = getattr(algorithms, algo_name)
 
@@ -100,7 +102,7 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
             # finally, send the keys and values to redis
             for key in keys:
                 redis_start = datetime.now()
-                save(dbId, accuracy, key, algo_data)
+                db.set(dbId, accuracy, key, algo_data)
                 redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
             # bail out early if we are not running the post-proc functions
@@ -109,7 +111,7 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
             
 
         # logger.debug(f'Algo+Post for {algo.__name__} {a_coeff} {b_coeff} done at {datetime.now() - start}')
-    
+    db.commit()
     elapsed = datetime.now() - start
 
     print(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
