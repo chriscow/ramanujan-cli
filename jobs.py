@@ -77,7 +77,9 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
 
             # store the result in the hashtable along with the
             # coefficients and other arguments that generated it
-            algo_data = (algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen)
+            # algo_data = (algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen)
+            algo_data = (algo.type_id, fn.type_id, result, '', a_gen, b_gen)
+
 
             # verify = reverse_solve(algo_data)
             # assert(verify == result)
