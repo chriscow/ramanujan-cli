@@ -111,10 +111,14 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
             
 
         # logger.debug(f'Algo+Post for {algo.__name__} {a_coeff} {b_coeff} done at {datetime.now() - start}')
+    
+    commit_start = datetime.now()
     db.commit()
+    commit_time = datetime.now() - commit_start
+
     elapsed = datetime.now() - start
 
-    print(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
+    print(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} commit: {commit_time}')
     # return test
 
 def save(dbId, accuracy, key, algo_data):
