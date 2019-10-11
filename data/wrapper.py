@@ -219,6 +219,8 @@ class HashtableWrapper():
                 if value not in values:
                     pipe.lpush(key, value)
 
+        pipe.execute()
+
 
 if __name__ == '__main__':
 
