@@ -56,7 +56,7 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
         for fn in funcs:
             
             # print(f'a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
-            # logger.debug(f'[{datetime.now() - start}] a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
+            # print(f'[{datetime.now() - start}] fn:{fn.__name__} value:{value}')
 
             # run the algo value through the postproc function
             st = datetime.now()
@@ -110,7 +110,7 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
     
     elapsed = datetime.now() - start
 
-    logging.info(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
+    print(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)}')
     # return test
 
 def save(dbId, accuracy, key, algo_data):
