@@ -102,7 +102,7 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
             # finally, send the keys and values to redis
             for key in keys:
                 redis_start = datetime.now()
-                db.set(dbId, accuracy, key, algo_data)
+                db.set(key, algo_data)
                 redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
             # bail out early if we are not running the post-proc functions
