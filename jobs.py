@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from rq.job import JobStatus
 
 import algorithms
-import config
 from data.wrapper import HashtableWrapper
 import postproc
 import utils
@@ -261,7 +260,7 @@ def reverse_solve(algo_data):
     Takes the data we are going to store and solves it to 
     verify we get the result back
     '''
-    ht = HashtableWrapper(db=0, accuracy=config.hash_precision)
+    ht = HashtableWrapper(db=0, accuracy=8)
 
     if isinstance(algo_data, str) or isinstance(algo_data, bytes):
         raise Exception('You forgot to unpack algo_data')
