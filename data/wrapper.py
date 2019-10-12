@@ -1,4 +1,5 @@
 import os
+import config
 import dotenv
 import mpmath
 from mpmath import mpf, mpc
@@ -24,7 +25,7 @@ accuracy may be redefined), support for serialization by dill/pickle and
 class HashtableWrapper():
     """Hashtable with decimal keys. Supports an arbitrary and varying precision for the keys."""
     
-    def __init__(self, db, accuracy):
+    def __init__(self, accuracy):
 
         # global config_pool, lhs_pool, rhs_pool
 
@@ -32,8 +33,6 @@ class HashtableWrapper():
 
         # = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
         self.redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
-        self.config = self.redis
-        self.db = str(db)
 
         self._cache = {}
 
@@ -43,29 +42,31 @@ class HashtableWrapper():
 
 
     def get_accuracy(self):
-        accuracy = self.config.get('accuracy')
+        accuracy = config.hash_precision
         return accuracy
 
 
     def set_accuracy(self, value):
-        current = self.get_accuracy()
+        raise Exception('set_accuracy not implemented')
+        # current = self.get_accuracy()
 
-        self.config.set('accuracy', value)
+        # self.config.set('accuracy', value)
 
-        # If the accuracy was not previously set, or is the same value then 
-        # there is no history to update.
-        if current is None or current == value:
-            return
+        # # If the accuracy was not previously set, or is the same value then 
+        # # there is no history to update.
+        # if current is None or current == value:
+        #     return
         
-        if current not in self.get_history():
-            self.config.lpush('accuracy_history', current)
+        # if current not in self.get_history():
+        #     self.config.lpush('accuracy_history', current)
 
 
     accuracy = property(get_accuracy, set_accuracy)
 
 
     def get_history(self):
-        return self.config.lrange('accuracy_history', 0, -1)
+        return []
+        # return self.config.lrange('accuracy_history', 0, -1)
 
 
     def manipulate_key(self, key):
@@ -109,10 +110,10 @@ class HashtableWrapper():
         acc = int(self.get_accuracy())
         history = [int(i) for i in self.get_history()]
 
-        old_keys = [ self.db + "-" + key_str[:dec_point_ind + i + 1] + '0' * (i - (len(key_str) - dec_point_ind))
+        old_keys = [ key_str[:dec_point_ind + i + 1] + '0' * (i - (len(key_str) - dec_point_ind))
                      for i in history ]
 
-        cur_key = self.db + "-" + key_str[:dec_point_ind + acc + 1] + '0' * (acc - (len(key_str) - dec_point_ind))
+        cur_key = key_str[:dec_point_ind + acc + 1] + '0' * (acc - (len(key_str) - dec_point_ind))
 
         return old_keys, cur_key
 
@@ -219,8 +220,8 @@ class HashtableWrapper():
                 if value not in values:
                     pipe.lpush(key, value)
 
+        self._cache = {}
         pipe.execute()
-
 
 if __name__ == '__main__':
 

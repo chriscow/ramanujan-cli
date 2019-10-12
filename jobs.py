@@ -15,12 +15,14 @@ import utils
 import mpmath
 from mpmath import mpf, mpc
 
+log = logging.getLogger(__name__)
+
 
 def ping(timestamp):
     return timestamp
 
 
-def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_postproc):
+def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, black_list, run_postproc):
     '''
     This method is queued up by the master process to be executed by a Celery worker.
 
@@ -28,9 +30,15 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
     arguments to arrive at that value in Redis.  Then, if configured, it runs the
     result through all the postproc.py functions to alter the result and stores
     all those too.
+
+    Arguments
+
+    args_list - list of a and b sequences. We pass each pair of sequences into the algorithm
+    sequence_index - the STARTING index of the generated sequence. If you want to reproduce the sequence
+        you have to generate all sequences, do an itertools.product() then index that list using sequence_index
     '''
 
-    db = HashtableWrapper(db=dbId, accuracy=accuracy)
+    db = HashtableWrapper(accuracy=accuracy)
 
     # Get the actual function from the name passed in
     algo = getattr(algorithms, algo_name)
@@ -46,19 +54,24 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
 
     for args in args_list:
 
-        # logger.debug(f'Starting {algo.__name__} {a_coeff} {b_coeff} at {datetime.now() - start}')
+        # utils.debug(log, f'Starting {algo.__name__} {a_coeff} {b_coeff} at {datetime.now() - start}')
 
         # Call the algorithm function
-        st = datetime.now()        
+        st = datetime.now()
+
+        if hasattr(algo, 'validate'):
+            if not algo.validate(*args):
+                continue
+
         value = algo(*args)
-        
+
         algo_times.append( (datetime.now() - st).total_seconds() )
 
         # Loop through all the postproc functions defined in postproc.py
         for fn in funcs:
             
-            # print(f'a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
-            # print(f'[{datetime.now() - start}] fn:{fn.__name__} value:{value}')
+            # utils.info(log, f'a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
+            # utils.info(log, f'[{datetime.now() - start}] fn:{fn.__name__} value:{value}')
 
             # run the algo value through the postproc function
             st = datetime.now()
@@ -79,8 +92,11 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
 
             # store the result in the hashtable along with the
             # coefficients and other arguments that generated it
-            # algo_data = (algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen)
-            algo_data = (algo.type_id, fn.type_id, result, '', a_gen, b_gen)
+
+            # if algo.type_id != 0: # rational function
+            #     args = ''
+
+            algo_data = (side, algo.type_id, fn.type_id, result, repr(args), sequence_index, a_gen, b_gen)
 
 
             # verify = reverse_solve(algo_data)
@@ -108,9 +124,11 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
             # bail out early if we are not running the post-proc functions
             if not run_postproc:
                 break
+        
+        sequence_index += 1
             
 
-        # logger.debug(f'Algo+Post for {algo.__name__} {a_coeff} {b_coeff} done at {datetime.now() - start}')
+        # utils.debug(log, f'Algo+Post for {algo.__name__} {a_coeff} {b_coeff} done at {datetime.now() - start}')
     
     commit_start = datetime.now()
     db.commit()
@@ -118,27 +136,8 @@ def store(dbId, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_po
 
     elapsed = datetime.now() - start
 
-    print(f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} commit: {commit_time}')
+    utils.info(log, f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} commit: {commit_time}')
     # return test
-
-def save(dbId, accuracy, key, algo_data):
-
-    # The db number passed in indicated whether we are working on the left or right
-    db = HashtableWrapper(db=dbId, accuracy=accuracy)
-
-    retry_time = 1  # seconds
-
-    while retry_time < 600:
-        try:
-            db.set(key, algo_data)
-            return
-        except Exception as err:
-            print(err)
-            print(f'Retrying save in {retry_time} seconds...')
-            time.sleep(retry_time)
-            retry_time *= 5
-
-    raise Exception('Redis server died. Cannot save.')
 
 
 def wait(work, silent):
@@ -155,32 +154,53 @@ def wait(work, silent):
     total_work = len(work)
     eta = timedelta()
 
+    utils.debug(log, f'[jobs.wait] Waiting for {total_work} jobs to complete')
     utils.printProgressBar(0, total_work, prefix='Waiting ...', suffix='     ')
 
     results = []
     failed = set()
+    completed = set()
+    unexpected = set()
 
     while len(work):  # while there is still work to do ...
 
-        completed_jobs = set()  # hold completed jobs done in this loop pass
+        queued = set()
+        started = set()
+        deferred = set()
+
         elapsed = []  # average the elapsed time for each job
 
-        for job in work:            
-            if job.get_status() == JobStatus.FINISHED:
+
+        for job in work:    
+            status = job.get_status()            
+            if status == JobStatus.FINISHED:
                 results.append(job.result)
-                completed_jobs.add(job)
-            elif job.get_status() == JobStatus.FAILED:
+                completed.add(job)
+            elif status == JobStatus.FAILED:
                 failed.add(job)
+            elif status == JobStatus.QUEUED:
+                queued.add(job)
+                time_in_queue = datetime.now() - job.enqueued_at
 
+            elif status == JobStatus.STARTED:
+                started.add(job)
+            elif status == JobStatus.DEFERRED:
+                deferred.add(job)
+            else:
+                unexpected.add(job)
+                utils.error(log, f'Unexpected job status: job.id:{job.id} status:{status}')
 
-            
-        # print(f'completed:{len(completed_jobs)} failed:{len(failed_jobs)}')
 
         # Removes completed jobs from work
-        work = work - completed_jobs - failed
+        work = work - completed - failed - unexpected
+
+        utils.debug(log, f'[jobs.wait] work:{len(work)} completed:{len(completed)} failed:{len(failed)} queued:{len(queued)} started:{len(started)} deferred:{len(deferred)} unexpected:{len(unexpected)}')
+
+        if len(failed):
+            utils.warn(log, f'[jobs.wait] failed jobs:{len(failed)}')
 
         # Wait a little bit before checking if more work has completed
-        time.sleep(.1)
+        time.sleep(1)
 
         if not silent:
 
@@ -212,8 +232,8 @@ def find_matches(vals_list):
         #   - b generator method and args
 
         # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
-        _,lhs_postproc_id,lhs_result,_,_,_ = eval(lhs_val)
-        _,rhs_postproc_id,rhs_result,_,_,_ = eval(rhs_val)
+        _,_,lhs_postproc_id,lhs_result,_,_,_,_ = eval(lhs_val)
+        _,_,rhs_postproc_id,rhs_result,_,_,_,_ = eval(rhs_val)
 
         # Check the absolute value of both sides and make sure they are the same
         # if mpmath.fabs(lhs_result)[:8] == mpmath.fabs(rhs_result):
@@ -323,4 +343,4 @@ if __name__ == '__main__':
 
     store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list, False)
 
-    print('jobs.py passed')
+    utils.info(log, 'jobs.py passed')

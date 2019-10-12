@@ -43,7 +43,9 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
     print('\r %s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
 
 
-def cont_frac_to_string(a, b, result=None):
+def cont_frac_to_string(a, b):
+    
+    result = ' = ' + str(continued_fraction(a, b))
 
     a = a[:4]
     b = b[:4]
@@ -55,13 +57,15 @@ def cont_frac_to_string(a, b, result=None):
             {1} {9} ------------
                         {6}
                 {2} {10} ------------
-                            {7}              = {0}
+                            {7}              {0}
                     {3} {11} -----------
                                 {8}
                         {4} {12} -----------   
                                 [...]""".format(result, *a, *b, *sign)
 
-def nested_radical_to_string(a, b, result=None):
+def nested_radical_to_string(a, b):
+
+    result = str(nested_radical(a,b)) + ' = '
 
     sign = ['+' if i > 0 else '-' for i in b] # get the sign
     b = [mpmath.fabs(i) for i in b]  # now normalize the sign for b (make it positive)
@@ -71,8 +75,9 @@ def nested_radical_to_string(a, b, result=None):
     a = a[:4]
     b = b[:4]
     sign = sign[:4]
+
     
-    return "{0} = √({1} {9} {5}√({2} {10} {6}√({3} {11} {7}√({4} {12} {8}√([ ... ] )))))".format(result, *a, *b, *sign)
+    return "{0}√({1} {9} {5}√({2} {10} {6}√({3} {11} {7}√({4} {12} {8}√([ ... ] )))))".format(result, *a, *b, *sign)
 
 def polynomial_to_string(coeff, x):
 
@@ -118,6 +123,31 @@ def get_funcs(module):
             result[type_id] = fn
 
     return result
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+def debug(log, msg):
+    log.debug(msg)
+
+def info(log, msg):
+    print(bcolors.OKBLUE + msg + bcolors.ENDC)
+    log.info(msg)
+
+def warn(log, msg):
+    print(bcolors.WARNING + msg + bcolors.ENDC)
+    log.warn(msg)
+
+def error(log, msg):
+    print(bcolors.FAIL + msg + bcolors.ENDC)
+    log.error(msg)
 
 if __name__ == '__main__':
 

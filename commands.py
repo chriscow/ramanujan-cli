@@ -1,6 +1,7 @@
 import os, time, itertools
 from datetime import datetime, timedelta
 import click
+import logging
 
 from redis import Redis
 from rq import Queue
@@ -14,6 +15,8 @@ import utils
 
 import data.generate
 import data.search
+
+log = logging.getLogger(__name__)
 
 @click.command()
 def status():
@@ -41,25 +44,26 @@ def clear(queue_name):
 
 
 @click.argument('precision', nargs=1, default=50)
-@click.option('--debug', is_flag=True, default=False)
+@click.option('--sync', is_flag=True, default=False)
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
-def search(precision, debug, silent):
+def search(precision, sync, silent):
     '''
     We want to:
         - make a first pass and find all key matches between the two sides
         - with all matches, 
     '''
-    data.search.run(precision, debug, silent)
+    data.search.run(precision, sync, silent)
 
 
 
 @click.option('--rhs', '-r', is_flag=True, default=False, help='Generate only the right hand side data')
 @click.option('--lhs', '-l', is_flag=True, default=False, help='Generate only the left hand side data')
-@click.option('--debug', '-d', is_flag=True, default=False, help='Runs synchronously without queueing')
+@click.option('--sync', '-s', is_flag=True, default=False, help='Runs synchronously without queueing')
+@click.option('--log-level', default='logging.DEBUG', help='Sets the logging level. Use: logging.DEBUG | logging.WARN etc.')
 @click.option('--silent', is_flag=True, default=False)
 @click.command()
-def generate(rhs, lhs, debug, silent):
+def generate(rhs, lhs, sync, log_level, silent):
     '''
     This command takes the configured coefficient ranges and divides them up
     for separate processes to work on the smaller chunks.  Each chunk is saved
@@ -67,7 +71,10 @@ def generate(rhs, lhs, debug, silent):
 
     Those workers post their results directly to the data.
     '''
+    logging.basicConfig(filename=f'generate.log',level=eval(log_level))
+
     start = datetime.now()  # keep track of what time we started
+    log.info(f'[generate] rhs:{rhs} lhs:{lhs} started at {start}')
 
     # If neither rhs or lhs options were selected, choose both by default
     if not rhs and not lhs:
@@ -76,18 +83,33 @@ def generate(rhs, lhs, debug, silent):
 
     work = set()
 
+    state = Redis()
+
     if rhs: # generate the work items for the right hand side
+        state.set('state.generate', 'rhs')
         print()
         print('\nGENERATE RHS')
-        for work in data.generate.run(config.rhs, int(os.getenv('RHS_DB')), False, debug, silent):
-            jobs.wait(work, silent)
 
+        state.set('rhs.data.generate.run', 0)
+        for work in data.generate.run(config.rhs, int(os.getenv('RHS_DB')), False, sync, silent):
+            jobs.wait(work, silent)
+            state.incr('rhs.data.generate.run')
+        
+        state.delete('rhs.data.generate.run')
 
     if lhs: # generate the work items for the left hand side
+        state.set('lhs.data.generate', 'lhs')
         print()
         print('\nGENERATE LHS')
-        for work in data.generate.run(config.lhs, int(os.getenv('LHS_DB')), True, debug, silent):
+
+        state.set('lhs.data.generate.run', 0)
+        for work in data.generate.run(config.lhs, int(os.getenv('LHS_DB')), True, sync, silent):
             jobs.wait(work, silent)
+            state.incr('lhs.data.generate.run')
+        
+        state.delete('lhs.data.generate.run')
+    
+    state.delete('state.generate')
 
     print()
 
