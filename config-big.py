@@ -12,8 +12,8 @@ class Config(object): pass
 
 hash_precision = 8
 
-batch_size = 10 # number of calculations in a single queued job - if this is too small, processors are waiting for work to be sent or too much network overhead. Too big and the amount of data per job is large
-max_workqueue_size = batch_size * 100 # maximum jobs in flight per worker before we wait for them to finish
+batch_size = 100 # number of calculations in a single queued job - if this is too small, processors are waiting for work to be sent or too much network overhead. Too big and the amount of data per job is large
+max_workqueue_size = 10000 / batch_size # maximum jobs in flight per worker before we wait for them to finish
 job_result_ttl=60 * 30 # longest amount of time before you check on a job's (complete) status
 
 
