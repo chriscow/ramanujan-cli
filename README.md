@@ -63,3 +63,11 @@ ssh -i "ramanujan.pem" -L 6379:ramanujan.afnsuz.clustercfg.usw2.cache.amazonaws.
 
 ## SSH Tunnel to MySQL
 ssh -i "ramanujan.pem" -L 3306:ramanujan-instance-1.clv2pjyyzqqn.us-west-2.rds.amazonaws.com:3306 ec2-user@ec2-54-213-102-95.us-west-2.compute.amazonaws.com
+
+## How to Screen
+screen -S redis
+redis-server
+ctrl+a, d  (detach)
+screen -ls
+
+screen -r redis

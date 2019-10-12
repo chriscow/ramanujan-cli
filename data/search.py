@@ -218,7 +218,12 @@ def generate_sequence(name, *args):
 
 def dump_output(matches):
 
-    filename = f'search {datetime.now()}.result.txt' 
+    i = 0
+    filename = f'search-{i}.result.txt' 
+    while os.path.exists(filename):
+        i += 1
+        filename = f'search-{i}.result.txt' 
+
     output = open(filename, 'w')
 
     postprocs = utils.get_funcs(postproc)
