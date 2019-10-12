@@ -8,4 +8,5 @@ node_modules
 *.rdb
 *.pid
 *.log
+*.result.txt
 **.zip

@@ -1,6 +1,7 @@
 import os
 import itertools
 import time
+from datetime import datetime
 import logging
 import mpmath
 from mpmath import mpf, mpc
@@ -217,6 +218,9 @@ def generate_sequence(name, *args):
 
 def dump_output(matches):
 
+    filename = f'search {datetime.now()}.result.txt' 
+    output = open(filename, 'w')
+
     postprocs = utils.get_funcs(postproc)
     algos = utils.get_funcs(algorithms)
 
@@ -293,12 +297,19 @@ def dump_output(matches):
             print('DUPLICATE:')
 
         print(lhs_output)
+        output.write(lhs_output)
+        output.write('\n')
         print(rhs_output)
+        output.write(rhs_output)
+        output.write('\n')
+
         rhs_cache.add(rhs_output)
         print()
+        output.write('\n\n')
     
     print(f'Found {len(rhs_cache)} matches at {mpmath.mp.dps} decimal places')
     print()
+    output.close()
 
 
 
