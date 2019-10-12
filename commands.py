@@ -81,8 +81,6 @@ def generate(rhs, lhs, sync, log_level, silent):
         rhs = True
         lhs = True
 
-    work = set()
-
     state = Redis()
 
     if rhs: # generate the work items for the right hand side
