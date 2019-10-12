@@ -13,6 +13,8 @@ import config
 import jobs
 import utils    
 
+from rediscluster import RedisCluster
+
 import data.generate
 import data.search
 
@@ -32,15 +34,13 @@ def status():
         count = q.count
 
 
-@click.argument('queue_name', nargs=1, default='default')
 @click.command()
-def clear(queue_name):
-    redis_conn = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
-    q = Queue(queue_name, connection=redis_conn)
+def clear():
+    startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
+    redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+    redis.flushall()
 
-    q.empty()
-
-    print(f'Work queue {q.name} cleared.')
+    print(f'Cluster data cleared.')
 
 
 @click.argument('precision', nargs=1, default=50)
