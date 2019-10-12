@@ -13,7 +13,7 @@ class Config(object): pass
 hash_precision = 8
 
 batch_size = 100 # number of calculations in a single queued job - if this is too small, processors are waiting for work to be sent or too much network overhead. Too big and the amount of data per job is large
-max_workqueue_size = int(10000 / batch_size) # maximum jobs in flight per worker before we wait for them to finish
+max_workqueue_size = 10000 # maximum jobs in flight per worker before we wait for them to finish
 job_result_ttl=60 * 30 # longest amount of time before you check on a job's (complete) status
 
 
@@ -79,7 +79,7 @@ lhs = {
 
     # Take the left-side algorithm result and run it through all the functions in postproc.py
     # and save those values too.  Takes much longer though
-    "run_postproc": False,
+    "run_postproc": True,
 
     # If the algorithm (or postproc functions) results in any of these values, 
     # don't store it
@@ -88,14 +88,14 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [0,1], [1,2], [0,1] ]], None ]
+        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
         }
     ],
 
     "b_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [1,2], [0,1], [0,1] ]], None ]
+        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
         }
     ]
 }
@@ -159,7 +159,7 @@ rhs = {
 
     # Take the left-side algorithm result and run it through all the functions in postproc.py
     # and save those values too.  Takes much longer though
-    "run_postproc": True,
+    "run_postproc": False,
 
     # If the algorithm (or postproc functions) results in any of these values, 
     # don't store it
@@ -168,19 +168,23 @@ rhs = {
     "a_sequences": [  # Sequence lengths all need to match (b can be + 1 in length)
         {
             "generator": algorithms.integer_sequence, # integer sequence of 201 digits:
-            "arguments": ( [1,2], 2, 100, [1], 1 )    # 2 digit repeating 100x sequence plus a single
+            "arguments": ( [1,2,3,4,5], 2, 100, [1,2,3,4,5], 1 )    # 2 digit repeating 100x sequence plus a single
         },
         {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [1,4], [0,2], [0,1] ]], range(0, 201))
+            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
         }
     ],
 
     "b_sequences": [
         {
-            "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [0,2], [-1,1], [0,1] ]], range(0, 201))
+            "generator": algorithms.integer_sequence, # integer sequence of 201 digits:
+            "arguments": ( [1,2,3,4,5], 2, 100, [1,2,3,4,5], 1 )    # 2 digit repeating 100x sequence plus a single
         },
+        {
+            "generator": algorithms.polynomial_sequence,
+            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
+        }
     ]
 }
 

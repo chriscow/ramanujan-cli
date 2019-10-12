@@ -92,7 +92,7 @@ def run(side, db, use_constants, sync=False, silent=False):
                             sync=sync, silent=True):
                         
                         work |= jobs
-                        
+
                     count += 1
 
                     if not silent:
@@ -116,7 +116,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     queues the algorithm calculations to be run and stored in the database.
     '''
     # Each job will contain this many a/b coefficient pairs
-    batch_size = config.batch_size
+    batch_size = config.batch_size if not run_postproc else 10
 
     arg_list = []  # holds a subset of the coefficient a-range
     work = set()  # set of all jobs queued up to know when we are done
@@ -142,7 +142,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     sequence_index = 0
     for args in sequence_pairs:
 
-        if len(work) > config.max_workqueue_size * worker_count:  # scaled to how many workers are registered and working
+        if len(work) > config.max_workqueue_size: # * worker_count:  # scaled to how many workers are registered and working
             yield work
             work.clear()
 
