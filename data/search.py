@@ -97,6 +97,7 @@ def run(max_precision=50, sync=False, silent=False):
 
         combinations = list(itertools.product(lhs_vals, rhs_vals))
 
+        chunk_id = 0
         # Enumerates all possible combinations of left and right
         for chunk in chunks(combinations, config.max_workqueue_size):
 
@@ -105,26 +106,27 @@ def run(max_precision=50, sync=False, silent=False):
             else:
                 work.add(q.enqueue(jobs.find_matches, chunk, result_ttl=config.job_result_ttl))
 
+            chunk_id += 1
             if not silent:
                 index += 1
-                utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Queueing {cur}/{dbsize}', suffix=f'                          ')
+                utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{len(combinations) / config.max_workqueue_size}')
 
-        jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
+            jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
+
         for job in work:
             if job.result:
                 matches |= job.result
-        work = set()
 
     log.debug(f'Waiting for remaining {len(work)} items to finish...')
     jobs.wait(0, 0, silent)
     for job in work:
         if job.result:
             matches |= job.result
-    work = set()
+
     # update redis with our search progress so we can pick up where we left off
 
     if not silent:
-        utils.printProgressBar(100, 100, suffix=f'                          ')
+        utils.printProgressBar(100, 100)
 
     log.info(f'Found {len(matches)} initial matches')
 
@@ -254,12 +256,13 @@ def dump_output(matches):
         if lhs_algo_id == 0: # rational_function
             lhs_args = eval(lhs_args) # these are the arguments to the rational_function
 
-            numerator = lhs_args[0]
-            denominator = lhs_args[1]
+            numerator = lhs_args[0][0]
+            denominator = lhs_args[1][0]
 
             # sequence generator function name and args
             func_name, func_args = lhs_a_gen
             poly_range, poly_x_values = eval(func_args)
+
             const = poly_x_values
 
 

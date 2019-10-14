@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 from redis import Redis, ConnectionPool
 from rq import Worker, Queue
+from rq.worker import WorkerStatus
 
 import algorithms
 from data.wrapper import HashtableWrapper
@@ -160,7 +161,8 @@ def wait(min, max, silent):
 
     redis_conn = Redis(connection_pool=work_queue_pool)
     default_queue = Queue(connection=redis_conn)
-    worker_count = len(Worker.all(connection=redis_conn))
+    workers = Worker.all(connection=redis_conn)
+    worker_count = len(workers)
 
     total_work = default_queue.count
     eta = timedelta()
@@ -182,7 +184,28 @@ def wait(min, max, silent):
 
         if not silent:
             utils.printProgressBar(total_work - default_queue.count + min, total_work - min, prefix=f'Waiting {total_work - default_queue.count + min} / {total_work - min}') # eta not working, suffix=f'ETA: {eta}')
-        
+
+    if max == 0:
+
+# WorkerStatus = enum(
+#     'WorkerStatus',
+#     STARTED='started',
+#     SUSPENDED='suspended',
+#     BUSY='busy',
+#     IDLE='idle'
+# )
+        busy_workers = set(workers)
+        idle_workers = set()
+        while len(busy_workers):
+            # wait for all workers to finish
+            for worker in busy_workers:
+                if worker.get_state() == WorkerStatus.IDLE:
+                    idle_workers.add(worker)
+
+            busy_workers = busy_workers - idle_workers
+            idle_workers.clear()
+            if len(busy_workers):
+                time.sleep(1)        
     
 
 def find_matches(vals_list):

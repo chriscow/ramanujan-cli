@@ -58,11 +58,14 @@ rq worker -c workers.settings --disable-job-desc-logging
 ## SSH Tunnel
 ssh -L local_port:remote_address:remote_port username@server.com
 
-## SSH Tunnel to Redis
-ssh -i "ramanujan.pem" -L 6379:ramanujan.afnsuz.clustercfg.usw2.cache.amazonaws.com:6379 ubuntu@ec2-35-160-4-175.us-west-2.compute.amazonaws.com
+## SSH Tunnel to Redis Cluster
+ssh -i "ramanujan.pem" -L 7000:ramanujan.afnsuz.clustercfg.usw2.cache.amazonaws.com:6379 ec2-user@ec2-34-219-94-177.us-west-2.compute.amazonaws.com
 
-## SSH Tunnel to MySQL
-ssh -i "ramanujan.pem" -L 3306:ramanujan-instance-1.clv2pjyyzqqn.us-west-2.rds.amazonaws.com:3306 ec2-user@ec2-54-213-102-95.us-west-2.compute.amazonaws.com
+## SSH Tunnel to Redis on Worker
+ssh -i "ramanujan.pem" -L 6379:ec2-52-40-241-30.us-west-2.compute.amazonaws.com:6379 ec2-user@ec2-34-219-94-177.us-west-2.compute.amazonaws.com
+
+## Redis command line
+redis-server --bind 0.0.0.0 --appendonly no --save ""
 
 ## How to Screen
 https://linuxize.com/post/how-to-use-linux-screen/
