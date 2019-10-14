@@ -109,18 +109,17 @@ def run(max_precision=50, sync=False, silent=False):
                 index += 1
                 utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Queueing {cur}/{dbsize}', suffix=f'                          ')
 
-        if len(work) > config.max_workqueue_size:
-            log.debug(f'Waiting for {len(work)} work items to complete...')
-            for result in jobs.wait(work, silent):
-                matches |= result
+        jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
+        for job in work:
+            matches |= job.result
             work = set()
 
     log.debug(f'Waiting for remaining {len(work)} items to finish...')
-    for result in jobs.wait(work, silent):
-        matches |= result
+    jobs.wait(0, 0, silent)
+    for job in work:
+        matches |= job.result
 
-        # update redis with our search progress so we can pick up where we left off
-
+    # update redis with our search progress so we can pick up where we left off
 
     if not silent:
         utils.printProgressBar(100, 100, suffix=f'                          ')
