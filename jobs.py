@@ -202,7 +202,7 @@ def wait(min, max, silent):
             workers = Worker.all(connection=redis_conn)
 
             # wait for all workers to finish
-            for worker in worker:
+            for worker in workers:
                 if worker.get_state() == WorkerStatus.IDLE:
                     idle_workers += 1
 
