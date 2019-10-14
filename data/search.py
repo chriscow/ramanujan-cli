@@ -99,7 +99,7 @@ def run(max_precision=50, sync=False, silent=False):
 
         chunk_id = 0
         # Enumerates all possible combinations of left and right
-        for chunk in chunks(combinations, config.max_workqueue_size * 1000):
+        for chunk in chunks(combinations, config.max_workqueue_size * 10):
 
             if sync:
                 matches |= jobs.find_matches(chunk)
