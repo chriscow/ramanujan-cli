@@ -72,7 +72,7 @@ def run(max_precision=50, sync=False, silent=False):
 
         if not silent:
             index += 1
-            utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]}', suffix=f'                          ')
+            utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Scanning {cur}/{dbsize}')
         
         values = cluster.lrange(key, 0, -1)
         if len(values) == 1:
@@ -109,7 +109,7 @@ def run(max_precision=50, sync=False, silent=False):
             chunk_id += 1
             if not silent:
                 index += 1
-                utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{len(combinations) / config.max_workqueue_size}')
+                utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{int(len(combinations) / config.max_workqueue_size)}')
 
             jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
 
