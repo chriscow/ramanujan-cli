@@ -1,3 +1,4 @@
+import os
 import inspect
 from algorithms import *
 import mpmath
@@ -21,6 +22,13 @@ const_map = {
     mpf(mpmath.glaisher): 'glaisher',  # actually A
 }
 
+def get_const_str(const):
+    if const in const_map:
+        return const_map[const]
+    
+
+    return str(const)[:15]
+
 # Print iterations progress
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 30, fill = '█'):
     """
@@ -34,12 +42,24 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         length      - Optional  : character length of bar (Int)
         fill        - Optional  : bar fill character (Str)
     """
+    global console_columns
+
     total = float(total)
 
     percent = ("0.0") if total == 0 else ("{0:." + str(decimals) + "f}").format(100 * (iteration / total))
     filledLength = 0 if total == 0 else int(length * iteration // total)
 
     bar = fill * filledLength + '-' * (length - filledLength)
+
+    output = '\r %s |%s| %s%% %s' % (prefix, bar, percent, suffix)
+
+    console_columns = 80
+    padding = ''
+
+    if len(output) < console_columns:
+        padding = ' ' * (console_columns - len(output))
+    
+    suffix = suffix + padding
     print('\r %s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
 
 

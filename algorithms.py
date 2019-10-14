@@ -160,13 +160,10 @@ def polynomial_sequence(coeff_range, poly_x_values):
         if isinstance(poly_x_values, str):
             const = eval(poly_x_values)
         else:
-            const = poly_x_values
+            const = [poly_x_values]
 
-        for coeffs in coefficients(coeff_range):
-            result.append( solve_polynomial(coeffs[0], const) )
-    else:
-        for coeffs in coefficients(coeff_range):
-            result.append( [solve_polynomial(coeffs[0], x) for x in poly_x_values] )
+    for coeffs in coefficients(coeff_range):
+        result.append( [solve_polynomial(coeffs[0], x) for x in poly_x_values] )
 
     return result
 

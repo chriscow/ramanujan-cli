@@ -65,9 +65,17 @@ ssh -i "ramanujan.pem" -L 6379:ramanujan.afnsuz.clustercfg.usw2.cache.amazonaws.
 ssh -i "ramanujan.pem" -L 3306:ramanujan-instance-1.clv2pjyyzqqn.us-west-2.rds.amazonaws.com:3306 ec2-user@ec2-54-213-102-95.us-west-2.compute.amazonaws.com
 
 ## How to Screen
+https://linuxize.com/post/how-to-use-linux-screen/
+
 screen -S redis
 redis-server
 ctrl+a, d  (detach)
 screen -ls
 
 screen -r redis
+
+# RQ Handy Commands
+rq --help
+rq empty --all -c workers.settings          Empty all queues
+rq info --interval 1 -c workers.settings    Monitor every 1 second
+rq suspend -c workers.settings              Suspends all workers 'rq resume' to start again

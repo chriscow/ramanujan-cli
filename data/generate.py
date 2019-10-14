@@ -49,10 +49,21 @@ def run(side, db, use_constants, sync=False, silent=False):
     sync: {sync}
     hash precision: {config.hash_precision}
     algorithm: {','.join([algo.__name__ for algo in side["algorithms"]])}
-    run post proc f(x)?: {side["run_postproc"]}
+    run post proc f(x)?: {run_postproc}
     worker count: {worker_count}
     
     ''')
+
+    # Each job will contain this many a/b coefficient pairs
+    # If we aren't running post proc functions, x10
+    
+    if use_constants:
+        batch_size = 5 if run_postproc else 500
+    else:
+        batch_size = 20 if run_postproc else 100
+
+    # If we are doing the constants, another 100x
+    # batch_size = batch_size * 10 if use_constants else batch_size
         
     for algo in side["algorithms"]:
         for a_sequence, b_sequence in itertools.product(a_sequences, b_sequences):
@@ -79,45 +90,37 @@ def run(side, db, use_constants, sync=False, silent=False):
                         const = mpf(eval(const))
 
                     # Total hack  :(
-                    a_args[1] = const
-                    b_args[1] = const
+                    a_args[1] = [const]
+                    b_args[1] = [const]
                     
-                    work = set()
 
                     # queue_work generates several jobs based on the a and b ranges
-                    for jobs in _queue_work(db, precision, algo.__name__, 
+                    _queue_work(db, precision, batch_size, algo.__name__, 
                             a_gen, a_args, 
                             b_gen, b_args, 
                             black_list, run_postproc, 
-                            sync=sync, silent=True):
-                        
-                        work |= jobs
-
-                    count += 1
-
-                    if not silent:
-                        utils.printProgressBar(count, len(config.constants) + 1, prefix='Queuing constants', suffix='     ')
-                
-                yield work
-                
+                            sync=sync, silent=silent, what=f'const:{utils.get_const_str(const)}')
+                                        
             else:
-                for jobs in _queue_work(db, precision, algo.__name__, 
+                _queue_work(db, precision, batch_size, algo.__name__, 
                     a_gen, a_args, 
                     b_gen, b_args, 
                     black_list, run_postproc, 
-                    sync=sync, silent=silent):
+                    sync=sync, silent=silent)
 
-                    yield jobs
+    # wait for remaining work
+    jobs.wait(0, 0, silent)
+    
 
 
-def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, b_gen_args, black_list, run_postproc, sync=False, silent=False):
+def _queue_work(db, precision, batch_size, algo_name, a_generator, a_gen_args, b_generator, b_gen_args, black_list, run_postproc, sync=False, silent=False, what=''):
     '''
     Calls the generator for the a-sequence and b-sequence, then
     queues the algorithm calculations to be run and stored in the database.
     '''
-    # Each job will contain this many a/b coefficient pairs
-    batch_size = config.batch_size if not run_postproc else 10
 
+    what = what[:15]
+    
     arg_list = []  # holds a subset of the coefficient a-range
     work = set()  # set of all jobs queued up to know when we are done
 
@@ -132,7 +135,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     # for the progress bar
     sequence_pairs = list(itertools.product(a_seq, b_seq))
     total_work = len(sequence_pairs)
-    count = 1
+    count = 0
     index = 0
     spinner = '|/-\\'
 
@@ -142,12 +145,7 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
     sequence_index = 0
     for args in sequence_pairs:
 
-        if len(work) > config.max_workqueue_size: # * worker_count:  # scaled to how many workers are registered and working
-            yield work
-            work.clear()
-
         arg_list.append(args)
-        count += 1
 
         # When the list of a's and b's are up to batch_size, queue a job
         if count % batch_size == 0:
@@ -163,21 +161,22 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
             else:
                 # adding .delay after the function name queues it up to be 
                 # executed by a Celery worker in another process / machine 
-                job = enqueue(db, precision, algo_name, arg_list, 
+                enqueue(db, precision, algo_name, arg_list, 
                         sequence_index,
                         (a_generator.__name__, repr(a_gen_args)),
                         (b_generator.__name__, repr(b_gen_args)),
                         black_list, run_postproc)
                 
-                work.add(job)   # hold onto the job info
+            jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
 
             arg_list = []
         
+        count += 1        
         sequence_index += 1
 
         if not silent:
             index += 1
-            utils.printProgressBar(count, total_work, prefix=f'{spinner[index % len(spinner)]} Queueing {count + 1}/{total_work}', suffix='     ')
+            utils.printProgressBar(count, total_work, prefix=f'{spinner[index % len(spinner)]} Queueing {what} {count}/{total_work}', suffix='     ')
 
     # If there are any left over coefficients whos array was not evenly
     # divisible by the batch_size at the end, queue them up also
@@ -189,16 +188,12 @@ def _queue_work(db, precision, algo_name, a_generator, a_gen_args, b_generator, 
                 (b_generator.__name__, repr(b_gen_args)),
                 black_list, run_postproc)
         else:
-            job = enqueue(db, precision, algo_name, arg_list,
+            enqueue(db, precision, algo_name, arg_list,
                     sequence_index,
                     (a_generator.__name__, repr(a_gen_args)),
                     (b_generator.__name__, repr(b_gen_args)),
                     black_list, run_postproc)
                
-            work.add(job) 
-
-    yield work
-
 def enqueue(*argv):
     global work_queue_pool
     redis_conn = Redis(connection_pool=work_queue_pool)
@@ -208,7 +203,7 @@ def enqueue(*argv):
 
     while retry_time < 600:
         try:
-            job = q.enqueue(jobs.store, result_ttl=config.job_result_ttl, *argv)
+            job = q.enqueue(jobs.store, result_ttl=0, *argv)
             return job
         except Exception as err:
             utils.warn(log, err)

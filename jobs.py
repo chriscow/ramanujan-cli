@@ -4,17 +4,21 @@ import itertools
 import logging
 from datetime import datetime, timedelta
 
-from rq.job import JobStatus
+from redis import Redis, ConnectionPool
+from rq import Worker, Queue
 
 import algorithms
 from data.wrapper import HashtableWrapper
 import postproc
 import utils
+import config
 
 import mpmath
 from mpmath import mpf, mpc
 
 log = logging.getLogger(__name__)
+
+work_queue_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=os.getenv('WORK_QUEUE_DB'))
 
 
 def ping(timestamp):
@@ -63,6 +67,8 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
                 continue
 
         value = algo(*args)
+        if value in black_list:
+            continue
 
         algo_times.append( (datetime.now() - st).total_seconds() )
 
@@ -131,15 +137,15 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
     
     commit_start = datetime.now()
     db.commit()
-    commit_time = datetime.now() - commit_start
+    commit_time = (datetime.now() - commit_start).total_seconds()
 
-    elapsed = datetime.now() - start
+    elapsed = (datetime.now() - start).total_seconds()
 
-    utils.info(log, f'algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} commit: {commit_time}')
+    utils.info(log, f'total:{elapsed} algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} commit: {commit_time}')
     # return test
 
 
-def wait(work, silent):
+def wait(min, max, silent):
     '''
     Waits on a set of celery job objects to complete. The caller is responsible
     for calling forget() on the result to remove it from the backend.
@@ -150,68 +156,34 @@ def wait(work, silent):
     Returns:
         All of the jobs passed in
     '''
-    total_work = len(work)
+    global work_queue_pool
+
+    redis_conn = Redis(connection_pool=work_queue_pool)
+    default_queue = Queue(connection=redis_conn)
+    worker_count = len(Worker.all(connection=redis_conn))
+
+    total_work = default_queue.count
     eta = timedelta()
 
-    utils.debug(log, f'[jobs.wait] Waiting for {total_work} jobs to complete')
-    utils.printProgressBar(0, total_work, prefix='Waiting ...', suffix='     ')
+    min *= worker_count
+    max *= worker_count
 
-    results = []
-    failed = set()
-    completed = set()
-    unexpected = set()
+    if total_work < max:
+        print(f'total_work:{total_work} < max:{max}')
+        return
 
-    while len(work):  # while there is still work to do ...
+    sleep_time = 0
 
-        queued = set()
-        started = set()
-        deferred = set()
+    while default_queue.count > min:
 
-        elapsed = []  # average the elapsed time for each job
-
-
-        for job in work:    
-            status = job.get_status()            
-            if status == JobStatus.FINISHED:
-                results.append(job.result)
-                completed.add(job)
-            elif status == JobStatus.FAILED:
-                failed.add(job)
-            elif status == JobStatus.QUEUED:
-                queued.add(job)
-                time_in_queue = datetime.now() - job.enqueued_at
-
-            elif status == JobStatus.STARTED:
-                started.add(job)
-            elif status == JobStatus.DEFERRED:
-                deferred.add(job)
-            else:
-                unexpected.add(job)
-                utils.error(log, f'Unexpected job status: job.id:{job.id} status:{status}')
-
-
-        # Removes completed jobs from work
-        work = work - completed - failed - unexpected
-
-        utils.debug(log, f'[jobs.wait] work:{len(work)} completed:{len(completed)} failed:{len(failed)} queued:{len(queued)} started:{len(started)} deferred:{len(deferred)} unexpected:{len(unexpected)}')
-
-        if len(failed):
-            utils.warn(log, f'[jobs.wait] failed jobs:{len(failed)}')
+        # utils.debug(log, f'[jobs.wait] Waiting for {total_work} jobs to complete')
 
         # Wait a little bit before checking if more work has completed
         time.sleep(1)
 
         if not silent:
-
-            # the eta calculation isn't working. Ignore this...
-            if len(elapsed):
-                # work left / work done on this pass * seconds
-                avg_secs = sum(elapsed) / len(elapsed)
-                eta = timedelta(seconds = len(work) / len(elapsed) * avg_secs)
-
-            utils.printProgressBar(total_work - len(work), total_work, prefix=f'Waiting {total_work - len(work)}/{total_work}', suffix='          ') # eta not working, suffix=f'ETA: {eta}')
-    
-    return results
+            utils.printProgressBar(total_work - default_queue.count + min, total_work - min, prefix=f'Waiting {total_work - default_queue.count + min} / {total_work - min}') # eta not working, suffix=f'ETA: {eta}')
+        
     
 
 def find_matches(vals_list):

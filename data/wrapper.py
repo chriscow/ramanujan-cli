@@ -221,6 +221,7 @@ class HashtableWrapper():
                     pipe.lpush(key, value)
 
         self._cache = {}
+
         pipe.execute()
 
 if __name__ == '__main__':
