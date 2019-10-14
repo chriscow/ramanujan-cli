@@ -198,6 +198,8 @@ def wait(min, max, silent):
 
         while idle_workers != len(workers):
             
+            idle_workers = 0
+
             # keep our workers list up to date
             workers = Worker.all(connection=redis_conn)
 
