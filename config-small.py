@@ -19,7 +19,7 @@ job_result_ttl=60 * 30 # longest amount of time before you check on a job's (com
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
-constants = [ '3', '5', '7',
+constants = [ 'mpmath.sqrt(3)', 'mpmath.sqrt(5)', 'mpmath.sqrt(7)',
 'mpmath.phi', 
 'mpmath.e',
 'mpmath.euler', 

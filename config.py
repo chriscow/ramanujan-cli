@@ -19,7 +19,7 @@ job_result_ttl=60 * 30 # longest amount of time before you check on a job's (com
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
-constants = [ '3', '5', '7',
+constants = [ 'mpmath.sqrt(3)', 'mpmath.sqrt(5)', 'mpmath.sqrt(7)',
 'mpmath.phi', 
 'mpmath.e',
 'mpmath.euler', 
@@ -88,14 +88,14 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
+        "arguments": [ [[ [0,1], [1,2], [0,1] ]], None ]
         }
     ],
 
     "b_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
+        "arguments": [ [[ [1,2], [0,1], [0,1] ]], None ]
         }
     ]
 }
@@ -168,23 +168,19 @@ rhs = {
     "a_sequences": [  # Sequence lengths all need to match (b can be + 1 in length)
         {
             "generator": algorithms.integer_sequence, # integer sequence of 201 digits:
-            "arguments": ( [1,2,3,4,5], 2, 100, [1,2,3,4,5], 1 )    # 2 digit repeating 100x sequence plus a single
+            "arguments": ( [1,2], 2, 100, [1], 1 )    # 2 digit repeating 100x sequence plus a single
         },
         {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
+            "arguments": ([[ [1,4], [0,2], [0,1] ]], range(0, 201))
         }
     ],
 
     "b_sequences": [
         {
-            "generator": algorithms.integer_sequence, # integer sequence of 201 digits:
-            "arguments": ( [1,2,3,4,5], 2, 100, [1,2,3,4,5], 1 )    # 2 digit repeating 100x sequence plus a single
-        },
-        {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
-        }
+            "arguments": ([[ [0,2], [-1,1], [0,1] ]], range(0, 201))
+        },
     ]
 }
 

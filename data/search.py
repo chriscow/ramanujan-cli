@@ -236,6 +236,9 @@ def dump_output(matches):
 
     rhs_cache = set()
 
+    index = 0
+    total = len(matches)
+
     # By the time we reach here, if there were any high-precision matches, 
     # dump out the data to the screen
     mpmath.mp.dps = 15 # back to default
@@ -245,9 +248,9 @@ def dump_output(matches):
         _, lhs_algo_id, lhs_post, lhs_result, lhs_args, lhs_seq_idx, lhs_a_gen, lhs_b_gen = eval(lhs)
         _, rhs_algo_id, rhs_post, rhs_result, rhs_args, rhs_seq_idx, rhs_a_gen, rhs_b_gen = eval(rhs)
 
-        print('')
-        print('-' * 60)
-        print('')
+        # print('')
+        # print('-' * 60)
+        # print('')
 
         lhs_output = ''
         rhs_output = ''
@@ -305,21 +308,24 @@ def dump_output(matches):
             rhs_output = f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_gen} b:{rhs_b_gen})) for x => poly range:{poly_range}'
         
         if rhs_output in rhs_cache:
-            print('DUPLICATE:')
+            # print('DUPLICATE:')
+            continue
 
-        print(lhs_output)
+        # print(lhs_output)
         output.write(lhs_output)
         output.write('\n')
-        print(rhs_output)
+        # print(rhs_output)
         output.write(rhs_output)
-        output.write('\n')
+        # output.write('\n')
 
         rhs_cache.add(rhs_output)
-        print()
+        # print()
         output.write('\n\n')
+
+        utils.printProgressBar(index, total, prefix=f'Writing output {index} / {total}')
     
-    print(f'Found {len(rhs_cache)} matches at {mpmath.mp.dps} decimal places')
-    print()
+    # print(f'Found {len(rhs_cache)} matches at {mpmath.mp.dps} decimal places')
+    # print()
     output.close()
 
 
