@@ -114,7 +114,7 @@ def run(max_precision=50, sync=False, silent=False):
             chunk_id += 1
             if not silent:
                 index += 1
-                utils.printProgressBar(cur, int(len(combinations) / combos_per_chunk), prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{int(len(combinations) / combos_per_chunk)}')
+                utils.printProgressBar(chunk_id, int(len(combinations) / combos_per_chunk), prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{int(len(combinations) / combos_per_chunk)}')
 
             jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
 
