@@ -63,16 +63,20 @@ def run(max_precision=50, sync=False, silent=False):
 
     work = set()
 
+    start = datetime.now()
+
     # key_matches() enumerates all the keys in the hashtable from the left hand side,
     # and finds a match on the right hand side.  
     for key in cluster.scan_iter():
+
+        elapsed = datetime.now() - start
 
         # These are just for the progress bar
         cur += 1
 
         if not silent:
             index += 1
-            utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Scanning {cur}/{dbsize}')
+            utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Scanning {int(cur / elapsed.total_seconds())}/sec ')
         
         values = cluster.lrange(key, 0, -1)
 
