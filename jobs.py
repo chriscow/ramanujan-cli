@@ -194,17 +194,19 @@ def wait(min, max, silent):
 #     BUSY='busy',
 #     IDLE='idle'
 # )
-        busy_workers = set(workers)
-        idle_workers = set()
-        while len(busy_workers):
-            # wait for all workers to finish
-            for worker in busy_workers:
-                if worker.get_state() == WorkerStatus.IDLE:
-                    idle_workers.add(worker)
+        idle_workers = 0
 
-            busy_workers = busy_workers - idle_workers
-            idle_workers.clear()
-            if len(busy_workers):
+        while idle_workers != len(workers):
+            
+            # keep our workers list up to date
+            workers = Worker.all(connection=redis_conn)
+
+            # wait for all workers to finish
+            for worker in worker:
+                if worker.get_state() == WorkerStatus.IDLE:
+                    idle_workers += 1
+
+            if idle_workers < len(workers):
                 time.sleep(1)        
     
 
