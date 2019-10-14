@@ -75,8 +75,10 @@ def run(max_precision=50, sync=False, silent=False):
             utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Scanning {cur}/{dbsize}')
         
         values = cluster.lrange(key, 0, -1)
+
+        # If there is only a single value, there is no match
         if len(values) == 1:
-            continue
+            cluster.delete(key)
 
         # These values are left and right hand results
         lhs_vals = set()
@@ -88,8 +90,9 @@ def run(max_precision=50, sync=False, silent=False):
             else:
                 lhs_vals.add( repr(value))
 
+        # if one side or the other don't have any values, no match possible
         if len(lhs_vals) == 0 or len(rhs_vals) == 0:
-            continue
+            cluster.delete(key)
 
         # How many combinations are there we need to check? (for progress bar)
         subtotal = len(lhs_vals) * len(rhs_vals)
