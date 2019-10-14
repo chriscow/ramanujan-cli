@@ -169,7 +169,6 @@ def wait(min, max, silent):
     max *= worker_count
 
     if total_work < max:
-        print(f'total_work:{total_work} < max:{max}')
         return
 
     sleep_time = 0
