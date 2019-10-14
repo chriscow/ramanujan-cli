@@ -111,14 +111,16 @@ def run(max_precision=50, sync=False, silent=False):
 
         jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
         for job in work:
-            matches |= job.result
-            work = set()
+            if job.result:
+                matches |= job.result
+        work = set()
 
     log.debug(f'Waiting for remaining {len(work)} items to finish...')
     jobs.wait(0, 0, silent)
     for job in work:
-        matches |= job.result
-
+        if job.result:
+            matches |= job.result
+    work = set()
     # update redis with our search progress so we can pick up where we left off
 
     if not silent:
