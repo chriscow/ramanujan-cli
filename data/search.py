@@ -99,7 +99,7 @@ def run(max_precision=50, sync=False, silent=False):
 
         chunk_id = 0
         # Enumerates all possible combinations of left and right
-        for chunk in chunks(combinations, config.max_workqueue_size):
+        for chunk in chunks(combinations, config.max_workqueue_size * 1000):
 
             if sync:
                 matches |= jobs.find_matches(chunk)
@@ -111,7 +111,7 @@ def run(max_precision=50, sync=False, silent=False):
                 index += 1
                 utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{int(len(combinations) / config.max_workqueue_size)}')
 
-            jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
+            jobs.wait(config.min_workqueue_size, config.max_workqueue_size * 1000, silent)
 
         for job in work:
             if job.result:
