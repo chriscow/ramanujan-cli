@@ -52,7 +52,7 @@ def clear():
 
 
 @click.argument('precision', nargs=1, default=50)
-@click.option('--sync', is_flag=True, default=False)
+@click.option('--sync', is_flag=True, default=True)
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
 def search(precision, sync, silent):

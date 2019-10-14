@@ -76,12 +76,12 @@ def run(max_precision=50, sync=False, silent=False):
 
         if not silent:
             index += 1
-            utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Scanning {int(cur / elapsed.total_seconds())}/sec ')
+            utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Scanning {cur} / {dbsize} ')
         
         values = cluster.lrange(key, 0, -1)
 
         # If there is only a single value, there is no match
-        if len(values) == 1:
+        if len(values) == 1: 
             cluster.delete(key)
 
         # These values are left and right hand results
@@ -331,6 +331,7 @@ def dump_output(matches):
         output.write('\n\n')
 
         utils.printProgressBar(index, total, prefix=f'Writing output {index} / {total}')
+        index += 1
     
     # print(f'Found {len(rhs_cache)} matches at {mpmath.mp.dps} decimal places')
     # print()
