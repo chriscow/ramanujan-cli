@@ -10,7 +10,7 @@ mpmath.mp.dps = 15  # 15 decimal places is the default for mpmath anyway but you
 # just an empty object we can hang properties off of dynamically
 class Config(object): pass
 
-hash_precision = 8
+hash_precision = 10
 
 min_workqueue_size = 10
 max_workqueue_size = 100 # maximum jobs in flight per worker before we wait for them to finish
@@ -88,7 +88,11 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
+        "arguments": [ [[ [-2,4], [-2,-1], [-2,2] ]], None ]
+        },
+        {
+        "generator": algorithms.polynomial_sequence,
+        "arguments": [ [[ [-2,4], [1,2], [-2,2] ]], None ]
         }
     ],
 

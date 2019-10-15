@@ -10,7 +10,7 @@ mpmath.mp.dps = 15  # 15 decimal places is the default for mpmath anyway but you
 # just an empty object we can hang properties off of dynamically
 class Config(object): pass
 
-hash_precision = 8
+hash_precision = 10
 
 min_workqueue_size = 10
 max_workqueue_size = 100 # maximum jobs in flight per worker before we wait for them to finish
