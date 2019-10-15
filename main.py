@@ -33,7 +33,10 @@ def check_environment():
     if os.getenv('RHS_KEY') is None:
         print('Creating default .env file ...')
         with open('.env', 'w') as env:
-            env.writelines('''REDIS_HOST=127.0.0.1
+            env.writelines('''REDIS_CLUSTER_HOST=ramanujan.afnsuz.clustercfg.usw2.cache.amazonaws.com
+REDIS_CLUSTER_PORT=6379
+
+REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 
 WORK_QUEUE_DB=15

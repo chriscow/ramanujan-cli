@@ -29,21 +29,22 @@ accuracy may be redefined), support for serialization by dill/pickle and
 class HashtableWrapper():
     """Hashtable with decimal keys. Supports an arbitrary and varying precision for the keys."""
     
-    def __init__(self, side, redis=None):
+    def __init__(self, side:
 
         global redis_pool
 
         if not isinstance(side, str) or side not in ['lhs', 'rhs', 'match']:
             raise Exception(f'Invalid argument for side: {side}. Expected lhs or rhs')
-            
 
-        if redis:
-            self.redis = redis
-        elif os.getenv('REDIS_CLUSTER_HOST'):
+            
+        self.cluster = False
+            
+        if os.getenv('REDIS_CLUSTER_HOST'):
             startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
             # utils.info(log, f'HashtableWrapper using cluster: {startup_nodes}')
             # = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
             self.redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+            self.cluster = True
         else:
             # utils.info(log, f'HashtableWrapper using local redis')
             self.redis = Redis(connection_pool=redis_pool)
@@ -139,10 +140,53 @@ class HashtableWrapper():
 
         match = self.side + ':' + match + ':*'
 
-        cursor = '0'
-        while cursor != 0:
-            cursor, data = self.redis.scan(cursor=cursor, match=match, count=count)
-            yield data
+        if self.cluster:
+            for result in self.scan_cluster(match, count):
+                yield result
+        else:
+            cursor = '0'
+            while cursor != 0:
+                cursor, data = self.redis.scan(cursor=cursor, match=match, count=count)
+                yield data
+
+    def scan_cluster(self, match=None, count=1000):
+        """
+        Make an iterator using the SCAN command so that the client doesn't
+        need to remember the cursor position.
+        ``match`` allows for filtering the keys by pattern
+        ``count`` allows for hint the minimum number of returns
+        Cluster impl:
+            Result from SCAN is different in cluster mode.
+        """
+        cursors = {}
+        nodeData = {}
+        for master_node in self.connection_pool.nodes.all_masters():
+            cursors[master_node["name"]] = "0"
+            nodeData[master_node["name"]] = master_node
+
+        while not all(cursors[node] == 0 for node in cursors):
+            for node in cursors:
+                if cursors[node] == 0:
+                    continue
+
+                conn = self.connection_pool.get_connection_by_node(nodeData[node])
+
+                pieces = ['SCAN', cursors[node]]
+                if match is not None:
+                    pieces.extend([b'MATCH', match])
+                if count is not None:
+                    pieces.extend([b'COUNT', count])
+
+                conn.send_command(*pieces)
+
+                raw_resp = conn.read_response()
+
+                # if you don't release the connection, the driver will make another, and you will hate your life
+                self.connection_pool.release(conn)
+                cur, resp = self._parse_scan(raw_resp)
+                cursors[node] = cur
+
+                yield resp
 
     def set(self, key, value):
         '''
