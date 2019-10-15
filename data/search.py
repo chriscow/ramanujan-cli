@@ -15,6 +15,8 @@ import jobs
 import postproc
 import utils
 
+import pickle
+
 log = logging.getLogger(__name__)
 
 from data.wrapper import HashtableWrapper
@@ -110,10 +112,12 @@ def run(max_precision=50, sync=False, silent=False):
         # Enumerates all possible combinations of left and right
         for chunk in chunks(combinations, combos_per_chunk):
 
-            if sync:
-                matches |= jobs.find_matches(chunk)
-            else:
-                work.add(q.enqueue(jobs.find_matches, chunk, result_ttl=config.job_result_ttl))
+            #
+            matches |= jobs.find_matches(chunk)
+            # if sync:
+            #     matches |= jobs.find_matches(chunk)
+            # else:
+            #     work.add(q.enqueue(jobs.find_matches, chunk, result_ttl=config.job_result_ttl))
 
             if not silent:
                 index += 1
@@ -206,7 +210,9 @@ def run(max_precision=50, sync=False, silent=False):
         
     #     matches = bigger_matches
 
-    dump_output(matches)
+    print(f'Saving matches.p  ... ')
+    pickle.dump( matches, open( "matches.p", "wb" ) )
+    dump_output("matches.p")
 
 def generate_sequences(a_gen, b_gen):
     
@@ -229,8 +235,9 @@ def generate_sequence(name, *args):
     return seq
 
 
-def dump_output(matches):
-
+def dump_output(infile):
+    print('Loading matches.p ...')
+    matches = pickle.load(open(infile, "rb"))
     i = 0
     filename = f'search-{i}.result.txt' 
     while os.path.exists(filename):
