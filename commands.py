@@ -44,16 +44,23 @@ def migrate():
             print('Did you be sure to ' + utils.bcolors.OKBLUE + 'export REDIS_CLUSTER_IP=0.0.0.0' + utils.bcolors.ENDC)
     else:
         source = Redis(os.getenv('REDIS_HOST'), os.getenv('REDIS_PORT'))
-        
+    
+    dbsize = 0
+    dbsizes = source.dbsize()
+    for key in dbsizes.keys():
+        dbsize += dbsizes[key]
+
     dest = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
     pipe = dest.pipeline(transaction=False)
 
+    index = 0
     for keys in source.scan_iter():
         for key in keys:
             pipe.set(key, source.get(key))
+            index += 1
 
         pipe.execute()    
-        
+        utils.printProgressBar(index, dbsize)
 
 
 @click.command()
