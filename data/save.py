@@ -138,8 +138,8 @@ def run():
             # print()
             output.write('\n\n')
 
-            index += 1
-            utils.printProgressBar(index, total, prefix=f'Writing output {index} / {total}')
+        index += 1
+        utils.printProgressBar(index, total, prefix=f'Writing output {index} / {total}')
         
     print()
     print(f'Found {total} matches at {mpmath.mp.dps} decimal places')
