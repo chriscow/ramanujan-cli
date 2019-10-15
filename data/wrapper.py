@@ -29,7 +29,7 @@ accuracy may be redefined), support for serialization by dill/pickle and
 class HashtableWrapper():
     """Hashtable with decimal keys. Supports an arbitrary and varying precision for the keys."""
     
-    def __init__(self, side:
+    def __init__(self, side):
 
         global redis_pool
 
