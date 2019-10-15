@@ -244,7 +244,7 @@ def find_matches(lhs_key, rhs_keys):
     match_db = HashtableWrapper('match')
 
     lhs_val = lhs_db.redis.get(lhs_key)
-    _, key_value, _ = str(lhs_key, 'utf-8').split(':')
+    _, key_value, _ = lhs_key.split(':')
 
     for rhs_key in rhs_keys:  
         
