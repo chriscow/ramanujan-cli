@@ -59,10 +59,10 @@ rq worker -c workers.settings --disable-job-desc-logging
 ssh -L local_port:remote_address:remote_port username@server.com
 
 ## SSH Tunnel to Redis Cluster
-ssh -i "ramanujan.pem" -L 7000:ramanujan.afnsuz.clustercfg.usw2.cache.amazonaws.com:6379 ec2-user@ec2-34-219-94-177.us-west-2.compute.amazonaws.com
+ssh -i "ramanujan.pem" -L 7000:ramanujan.afnsuz.clustercfg.usw2.cache.amazonaws.com:6379 ec2-user@ec2-18-237-15-74.us-west-2.compute.amazonaws.com
 
 ## SSH Tunnel to Redis on Worker
-ssh -i "ramanujan.pem" -L 6379:ec2-52-40-241-30.us-west-2.compute.amazonaws.com:6379 ec2-user@ec2-34-219-94-177.us-west-2.compute.amazonaws.com
+ssh -i "ramanujan.pem" -L 6379:ec2-18-237-229-137.us-west-2.compute.amazonaws.com:6379 ec2-user@ec2-18-237-15-74.us-west-2.compute.amazonaws.com
 
 ## Redis command line
 redis-server --bind 0.0.0.0 --appendonly no --save ""
