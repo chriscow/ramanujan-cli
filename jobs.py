@@ -226,7 +226,7 @@ def queue_search(lhs_keys, sync):
     # and finds a match on the right hand side.  
     for lhs_key in lhs_keys:
 
-        _, key_value, _ = str(lhs_key, 'utf-8').split(':')
+        _, key_value, _ = lhs_key.split(':')
 
         for rhs_keys in rhs_db.scan(key_value):
             

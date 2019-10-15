@@ -182,7 +182,7 @@ class HashtableWrapper():
                 raw_resp = conn.read_response()
 
                 # if you don't release the connection, the driver will make another, and you will hate your life
-                self.connection_pool.release(conn)
+                self.redis.connection_pool.release(conn)
                 cur, resp = self.redis._parse_scan(raw_resp)
                 cursors[node] = cur
 

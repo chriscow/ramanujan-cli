@@ -51,7 +51,7 @@ def run(max_precision=50, sync=False, silent=False):
             q.enqueue(jobs.queue_search, lhs_keys, sync)
 
     jobs.wait(0, 0, silent)
-
+    print()
 
 
 # def test():
