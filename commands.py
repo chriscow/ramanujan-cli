@@ -17,6 +17,7 @@ from rediscluster import RedisCluster
 
 import data.generate
 import data.search
+import data.save
 
 log = logging.getLogger(__name__)
 
@@ -111,5 +112,5 @@ def generate(rhs, lhs, sync, log_level, silent):
 
 @click.command()
 def save():
-    data.search.save()
+    data.save.run()
 
