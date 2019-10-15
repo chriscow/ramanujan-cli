@@ -88,18 +88,14 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-2,4], [-2,-1], [-2,2] ]], None ]
-        },
-        {
-        "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-2,4], [1,2], [-2,2] ]], None ]
+        "arguments": [ [[ [0,1], [1,2], [0,1] ]], None ]
         }
     ],
 
     "b_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-2,4], [-2,2], [-2,2] ]], None ]
+        "arguments": [ [[ [1,2], [0,1], [0,1] ]], None ]
         }
     ]
 }
