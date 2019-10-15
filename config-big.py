@@ -88,7 +88,11 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
+        "arguments": [ [[ [-4,4], [-4,-1], [-4,4] ]], None ]
+        },
+        {
+        "generator": algorithms.polynomial_sequence,
+        "arguments": [ [[ [-4,4], [1,4], [-4,4] ]], None ]
         }
     ],
 

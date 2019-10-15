@@ -68,7 +68,7 @@ def continued_fraction(a, b=None):
     return mpf(res)
 
 continued_fraction.type_id = 1
-continued_fraction.validate = lambda a,b: len(b) and sum(b)
+continued_fraction.validate = lambda a,b: len(b) and sum(b) and 0 not in b
 
 
 def nested_radical(a, b):
@@ -84,7 +84,7 @@ def nested_radical(a, b):
     return root
 
 nested_radical.type_id = 2
-nested_radical.validate = lambda a,b: len(b) and sum(b) and b[0] != 0
+nested_radical.validate = lambda a,b: len(b) and sum(b) and 0 not in b
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #                                                                             #
