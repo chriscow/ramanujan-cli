@@ -82,3 +82,10 @@ rq --help
 rq empty --all -c workers.settings          Empty all queues
 rq info --interval 1 -c workers.settings    Monitor every 1 second
 rq suspend -c workers.settings              Suspends all workers 'rq resume' to start again
+
+## TODO
+
+- go back to using 0-* and 1-*.  We will have fewer keys for LHS for faster scanning
+- after above do a keys '*', chunk up the keys and queue them out
+- save key and lrange index for item that matches
+- iterate over matching keys

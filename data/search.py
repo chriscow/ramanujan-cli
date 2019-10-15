@@ -26,6 +26,7 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
+
 def run(max_precision=50, sync=False, silent=False):
     '''
     We want to:
@@ -38,111 +39,35 @@ def run(max_precision=50, sync=False, silent=False):
     q = Queue(connection=local_redis)
     log.debug(f'Localhost redis work queue is {os.getenv("WORK_QUEUE_DB")}')
 
-    startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
-    log.debug(f"Redis cluster startup_nodes:{startup_nodes}")
 
-    # = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
-    cluster = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+    lhs_db = HashtableWrapper('lhs')
+    rhs_db = HashtableWrapper('rhs')
 
+    for lhs_keys in lhs_db.scan():
 
-    index = 0
-    spinner = '|/-\\'
+        if sync:
+            jobs.queue_search(lhs_keys, sync)
+        else:
+            q.enqueue(jobs.queue_search, lhs_keys, sync)
 
-
-    postprocs = utils.get_funcs(postproc)
-    algos = utils.get_funcs(algorithms)
-    matches = set()
-
-    dbsizes = cluster.dbsize()
-    dbsize = sum([dbsizes[key] for key in dbsizes])
-    log.debug(f'Cluster dbsizes:{dbsizes}  overall:{dbsize}')
-
-
-    cur = 0
-
-    # TODO:  Check redis to see if we have a search that was interrupted
-    # - load the matches from the previous search
-
-    work = set()
-
-    start = datetime.now()
-
-    # key_matches() enumerates all the keys in the hashtable from the left hand side,
-    # and finds a match on the right hand side.  
-    for key in cluster.scan_iter():
-
-        elapsed = datetime.now() - start
-
-        # These are just for the progress bar
-        cur += 1
-
-        if not silent:
-            index += 1
-            utils.printProgressBar(cur, dbsize, prefix=f'{spinner[index % len(spinner)]} Scanning {cur} / {dbsize} ')
-        
-        values = cluster.lrange(key, 0, -1)
-
-        # If there is only a single value, there is no match
-        if len(values) == 1: 
-            cluster.delete(key)
-
-        # These values are left and right hand results
-        lhs_vals = set()
-        rhs_vals = set()
-        for value in values:
-            value = eval(value)
-            if value[0] == 0:
-                rhs_vals.add( repr(value))
-            else:
-                lhs_vals.add( repr(value))
-
-        # if one side or the other don't have any values, no match possible
-        if len(lhs_vals) == 0 or len(rhs_vals) == 0:
-            cluster.delete(key)
-
-        # How many combinations are there we need to check? (for progress bar)
-        subtotal = len(lhs_vals) * len(rhs_vals)
-        log.debug(f'Combiations for key:{key} {subtotal}')
-
-        combinations = list(itertools.product(lhs_vals, rhs_vals))
-
-        chunk_id = 0
-        combos_per_chunk = 1000
-
-        # Enumerates all possible combinations of left and right
-        for chunk in chunks(combinations, combos_per_chunk):
-
-            #
-            matches |= jobs.find_matches(chunk)
-            # if sync:
-            #     matches |= jobs.find_matches(chunk)
-            # else:
-            #     work.add(q.enqueue(jobs.find_matches, chunk, result_ttl=config.job_result_ttl))
-
-            if not silent:
-                index += 1
-                utils.printProgressBar(chunk_id, int(len(combinations) / combos_per_chunk), prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{int(len(combinations) / combos_per_chunk)} ({cur}/{dbsize})')
-
-            chunk_id += 1
-
-            jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
-
-        for job in work:
-            if job.result:
-                matches |= job.result
-
-    log.debug(f'Waiting for remaining {len(work)} items to finish...')
     jobs.wait(0, 0, silent)
-    for job in work:
-        if job.result:
-            matches |= job.result
 
-    # update redis with our search progress so we can pick up where we left off
 
-    if not silent:
-        utils.printProgressBar(100, 100)
 
-    log.info(f'Found {len(matches)} initial matches')
+# def test():
+
+#     log.debug(f'Waiting for remaining {len(work)} items to finish...')
+#     jobs.wait(0, 0, silent)
+#     for job in work:
+#         if job.result:
+#             matches |= job.result
+
+#     # update redis with our search progress so we can pick up where we left off
+
+#     if not silent:
+#         utils.printProgressBar(100, 100)
+
+#     log.info(f'Found {len(matches)} initial matches')
 
     # # 'matches()' contains the arguments where the values matched exactly
     # # at 15 decimal places (whatever is in the config)
@@ -210,9 +135,9 @@ def run(max_precision=50, sync=False, silent=False):
         
     #     matches = bigger_matches
 
-    print(f'Saving matches.p  ... ')
-    pickle.dump( matches, open( "matches.p", "wb" ) )
-    dump_output("matches.p")
+    # print(f'Saving matches.p  ... ')
+    # pickle.dump( matches, open( "matches.p", "wb" ) )
+    # dump_output("matches.p")
 
 def generate_sequences(a_gen, b_gen):
     
@@ -235,9 +160,10 @@ def generate_sequence(name, *args):
     return seq
 
 
-def dump_output(infile):
-    print('Loading matches.p ...')
-    matches = pickle.load(open(infile, "rb"))
+def save():
+
+    db = HashtableWrapper('match')
+
     i = 0
     filename = f'search-{i}.result.txt' 
     while os.path.exists(filename):
@@ -246,103 +172,109 @@ def dump_output(infile):
 
     output = open(filename, 'w')
 
+
     postprocs = utils.get_funcs(postproc)
     algos = utils.get_funcs(algorithms)
 
     rhs_cache = set()
 
     index = 0
-    total = len(matches)
+    total = len(list(db.scan())[0])
 
     # By the time we reach here, if there were any high-precision matches, 
     # dump out the data to the screen
     mpmath.mp.dps = 15 # back to default
-    for lhs, rhs in matches:
+    for match_keys in db.scan():
+        for match_key in match_keys:
+            
+            lhs,rhs = eval(db.redis.get(match_key))
+
             # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
 
-        _, lhs_algo_id, lhs_post, lhs_result, lhs_args, lhs_seq_idx, lhs_a_gen, lhs_b_gen = eval(lhs)
-        _, rhs_algo_id, rhs_post, rhs_result, rhs_args, rhs_seq_idx, rhs_a_gen, rhs_b_gen = eval(rhs)
+            _, lhs_algo_id, lhs_post, lhs_result, lhs_args, lhs_seq_idx, lhs_a_gen, lhs_b_gen = eval(lhs)
+            _, rhs_algo_id, rhs_post, rhs_result, rhs_args, rhs_seq_idx, rhs_a_gen, rhs_b_gen = eval(rhs)
 
-        # print('')
-        # print('-' * 60)
-        # print('')
+            # print('')
+            # print('-' * 60)
+            # print('')
 
-        lhs_output = ''
-        rhs_output = ''
+            lhs_output = ''
+            rhs_output = ''
 
-        #
-        # output the fancy version for known functions
-        #
-        if lhs_algo_id == 0: # rational_function
-            lhs_args = eval(lhs_args) # these are the arguments to the rational_function
+            #
+            # output the fancy version for known functions
+            #
+            if lhs_algo_id == 0: # rational_function
+                lhs_args = lhs_args # these are the arguments to the rational_function
 
-            numerator = lhs_args[0][0]
-            denominator = lhs_args[1][0]
+                numerator = lhs_args[0][0]
+                denominator = lhs_args[1][0]
 
-            # sequence generator function name and args
-            func_name, func_args = lhs_a_gen
-            poly_range, poly_x_values = eval(func_args)
+                # sequence generator function name and args
+                func_name, func_args = lhs_a_gen
+                poly_range, poly_x_values = eval(func_args)
 
-            const = poly_x_values
+                const = poly_x_values
 
 
-            post = postprocs[lhs_post].__name__ + f'( {const} ) == '
-            if lhs_post == 0: #identity
-                post = ''
+                post = postprocs[lhs_post].__name__ + f'( {const} ) == '
+                if lhs_post == 0: #identity
+                    post = ''
 
-            if lhs_result in utils.const_map:
-                lhs_result = f'{utils.const_map[lhs_result]} = {lhs_result}'
-            
-            if denominator != 1:
-                lhs_output = f'LHS: {post} {lhs_result}  ==>  {numerator} / {denominator}'
+                if lhs_result in utils.const_map:
+                    lhs_result = f'{utils.const_map[lhs_result]} = {lhs_result}'
+                
+                if denominator != 1:
+                    lhs_output = f'LHS: {post} {lhs_result}  ==>  {numerator} / {denominator}'
+                else:
+                    lhs_output = f'LHS: {post} {lhs_result}'
             else:
-                lhs_output = f'LHS: {post} {lhs_result}'
-        else:
-            lhs_output = f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_gen} b:{lhs_b_gen}))'
+                lhs_output = f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_gen} b:{lhs_b_gen}))'
 
-        # sequence_pairs = generate_sequences(rhs_a_gen, rhs_b_gen)
-        # a, b = sequence_pairs[rhs_seq_idx]
-        a, b = eval(rhs_args)
+            # sequence_pairs = generate_sequences(rhs_a_gen, rhs_b_gen)
+            # a, b = sequence_pairs[rhs_seq_idx]
+            a, b = rhs_args
 
-        if rhs_algo_id == 1: # continued fraction
-            cont_frac = utils.cont_frac_to_string(a, b)
-            post = postprocs[rhs_post].__name__ + '(x) <== '
-            if rhs_post == 0: #identity
-                post = ''
+            if rhs_algo_id == 1: # continued fraction
+                cont_frac = utils.cont_frac_to_string(a, b)
+                post = postprocs[rhs_post].__name__ + '(x) <== '
+                if rhs_post == 0: #identity
+                    post = ''
 
-            rhs_output = f'RHS: {rhs_result} == {post} {cont_frac}'
-        elif rhs_algo_id == 2: # nested radical
-            nest_rad = utils.nested_radical_to_string(a, b)
-            post = postprocs[rhs_post].__name__ + '(x) <== '
-            if rhs_post == 0: #identity
-                post = ''
+                rhs_output = f'RHS: {rhs_result} == {post} {cont_frac}'
+            elif rhs_algo_id == 2: # nested radical
+                nest_rad = utils.nested_radical_to_string(a, b)
+                post = postprocs[rhs_post].__name__ + '(x) <== '
+                if rhs_post == 0: #identity
+                    post = ''
+                
+                rhs_output = f'RHS: {rhs_result} == {post} {nest_rad}'
+
+            else:
+                rhs_output = f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_gen} b:{rhs_b_gen})) for x => poly range:{poly_range}'
             
-            rhs_output = f'RHS: {rhs_result} == {post} {nest_rad}'
+            if rhs_output in rhs_cache:
+                # print('DUPLICATE:')
+                continue
 
-        else:
-            rhs_output = f'RHS: {rhs_result} {postprocs[rhs_post].__name__}( {algos[rhs_algo_id].__name__} (a:{rhs_a_gen} b:{rhs_b_gen})) for x => poly range:{poly_range}'
+            # print(lhs_output)
+            output.write(lhs_output)
+            output.write('\n')
+            # print(rhs_output)
+            output.write(rhs_output)
+            # output.write('\n')
+
+            rhs_cache.add(rhs_output)
+            # print()
+            output.write('\n\n')
+
+            index += 1
+            utils.printProgressBar(index, total, prefix=f'Writing output {index} / {total}')
         
-        if rhs_output in rhs_cache:
-            # print('DUPLICATE:')
-            continue
-
-        # print(lhs_output)
-        output.write(lhs_output)
-        output.write('\n')
-        # print(rhs_output)
-        output.write(rhs_output)
-        # output.write('\n')
-
-        rhs_cache.add(rhs_output)
-        # print()
-        output.write('\n\n')
-
-        utils.printProgressBar(index, total, prefix=f'Writing output {index} / {total}')
-        index += 1
-    
-    # print(f'Found {len(rhs_cache)} matches at {mpmath.mp.dps} decimal places')
-    # print()
-    output.close()
+        print()
+        print(f'Found {total} matches at {mpmath.mp.dps} decimal places')
+        print()
+        output.close()
 
 
 

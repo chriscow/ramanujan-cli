@@ -30,20 +30,20 @@ def check_environment():
     #if os.getenv('DOCKER') is None:
     #    os.environ['REDIS_HOST'] = 'localhost'
 
-    if os.getenv('RHS_DB') is None:
+    if os.getenv('RHS_KEY') is None:
         print('Creating default .env file ...')
         with open('.env', 'w') as env:
-            env.writelines('''REDIS_HOST=redis
+            env.writelines('''REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 
 WORK_QUEUE_DB=15
 CONFIG_DB=14
-LHS_DB=1
-RHS_DB=0
+LHS_KEY=lhs
+RHS_KEY=lhs
             ''')
 
     dotenv.load_dotenv()
-    assert(os.getenv('RHS_DB') is not None)
+    assert(os.getenv('RHS_KEY') is not None)
 
 
 def print_error_and_exit(lines):
@@ -104,4 +104,5 @@ if __name__ == '__main__':
     cli.add_command(commands.clear)
     cli.add_command(commands.generate)
     cli.add_command(commands.search)
+    cli.add_command(commands.save)
     cli()

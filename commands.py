@@ -52,7 +52,7 @@ def clear():
 
 
 @click.argument('precision', nargs=1, default=50)
-@click.option('--sync', is_flag=True, default=True)
+@click.option('--sync', is_flag=True, default=False)
 @click.option('--silent', '-s', is_flag=True, default=False)
 @click.command()
 def search(precision, sync, silent):
@@ -93,14 +93,23 @@ def generate(rhs, lhs, sync, log_level, silent):
         print()
         print('\nGENERATE RHS')
 
-        data.generate.run(config.rhs, int(os.getenv('RHS_DB')), False, sync, silent)
+        if os.getenv('RHS_KEY') is None:
+            raise Exception('RHS_KEY environment variable is None')
+
+        data.generate.run(config.rhs, os.getenv('RHS_KEY'), False, sync, silent)
 
     if lhs: # generate the work items for the left hand side
         print()
         print('\nGENERATE LHS')
 
-        data.generate.run(config.lhs, int(os.getenv('LHS_DB')), True, sync, silent)
+        if os.getenv('LHS_KEY') is None:
+            raise Exception('LHS_KEY environment variable is None')
+
+        data.generate.run(config.lhs, os.getenv('LHS_KEY'), True, sync, silent)
 
     print()
 
+@click.command()
+def save():
+    data.search.save()
 

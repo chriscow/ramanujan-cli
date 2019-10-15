@@ -31,8 +31,8 @@ services:
       - REDIS_PORT=6379
       - WORK_QUEUE_DB=15
       - CONFIG_DB=14
-      - LHS_DB=1
-      - RHS_DB=0
+      - LHS_KEY=lhs
+      - RHS_KEY=rhs
   rq-dashboard:
     image: rq-dashboard
     build:

@@ -167,7 +167,7 @@ def _queue_work(db, precision, batch_size, algo_name, a_generator, a_gen_args, b
                         (b_generator.__name__, repr(b_gen_args)),
                         black_list, run_postproc)
                 
-            jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
+                jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
 
             arg_list = []
         

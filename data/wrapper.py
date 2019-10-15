@@ -1,17 +1,21 @@
 import os
 import config
 import dotenv
+import hashlib
+import logging
+import utils
+import zlib
 import mpmath
 from mpmath import mpf, mpc
 
+from redis import Redis, ConnectionPool
 from rediscluster import RedisCluster
 
 dotenv.load_dotenv()
 
-# config_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('CONFIG_DB'))
-# lhs_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('LHS_DB'))
-# rhs_pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379, db=os.getenv('RHS_DB'))
+log = logging.getLogger(__name__)
 
+redis_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=6379)
 
 '''
 This simply wraps calls to redis to make it look a little more like a data.
@@ -25,51 +29,31 @@ accuracy may be redefined), support for serialization by dill/pickle and
 class HashtableWrapper():
     """Hashtable with decimal keys. Supports an arbitrary and varying precision for the keys."""
     
-    def __init__(self, accuracy):
+    def __init__(self, side, redis=None):
 
-        # global config_pool, lhs_pool, rhs_pool
+        global redis_pool
 
-        startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
+        if not isinstance(side, str) or side not in ['lhs', 'rhs', 'match']:
+            raise Exception(f'Invalid argument for side: {side}. Expected lhs or rhs')
+            
 
-        # = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
-        self.redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+        if redis:
+            self.redis = redis
+        elif os.getenv('REDIS_CLUSTER_HOST'):
+            startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
+            # utils.info(log, f'HashtableWrapper using cluster: {startup_nodes}')
+            # = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+            self.redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+        else:
+            # utils.info(log, f'HashtableWrapper using local redis')
+            self.redis = Redis(connection_pool=redis_pool)
 
         self._cache = {}
-
-        # If the database is empty, then set the initial value
-        if self.get_accuracy() is None:
-            self.set_accuracy(accuracy)
+        self.side = side
+        self.accuracy = config.hash_precision
 
 
-    def get_accuracy(self):
-        accuracy = config.hash_precision
-        return accuracy
-
-
-    def set_accuracy(self, value):
-        raise Exception('set_accuracy not implemented')
-        # current = self.get_accuracy()
-
-        # self.config.set('accuracy', value)
-
-        # # If the accuracy was not previously set, or is the same value then 
-        # # there is no history to update.
-        # if current is None or current == value:
-        #     return
-        
-        # if current not in self.get_history():
-        #     self.config.lpush('accuracy_history', current)
-
-
-    accuracy = property(get_accuracy, set_accuracy)
-
-
-    def get_history(self):
-        return []
-        # return self.config.lrange('accuracy_history', 0, -1)
-
-
-    def manipulate_key(self, key):
+    def manipulate_key(self, key, value=None):
         '''
         Converts an mpf() numeric value to a string of length indicated by the
         current accuracy value as well as all previous accuracy values.
@@ -97,30 +81,37 @@ class HashtableWrapper():
         # Get the index of the decimal point in the string 
         dec_point_ind = key_str.find('.') + 1 if '.' in key_str else 0
 
-        # We are going to create an array of keys of varying decimal places of
-        # accuracy based on 'accuracy_history'.  The original key passed in is
-        # truncated to the number of digits in 'accuracy_history' and then padded
-        # with zeros if necessary.
-        #
-        # The resulting 'old_keys' array is in chronological order of the
-        # accuracy history.
-        #
-        # Numeric values are stored in redis as binary strings.  We need to convert
-        # them back to ints
-        acc = int(self.get_accuracy())
-        history = [int(i) for i in self.get_history()]
+        acc = self.accuracy
 
-        old_keys = [ key_str[:dec_point_ind + i + 1] + '0' * (i - (len(key_str) - dec_point_ind))
-                     for i in history ]
+        padded_key = key_str[:dec_point_ind + acc] + '0' * (acc - (len(key_str) - dec_point_ind))
+        key = self.side + ':' + padded_key
 
-        cur_key = key_str[:dec_point_ind + acc + 1] + '0' * (acc - (len(key_str) - dec_point_ind))
+        if value is None:
+            key += ':*'
+        else:
+            if isinstance(value, tuple):
+                value = bytes(repr(value), 'utf-8')
 
-        return old_keys, cur_key
+            value_hash = hashlib.sha256(value).hexdigest()
+            key +=  ':' + value_hash
 
+        return key
 
+    def keys(self, key):
+        if isinstance(key, bytes):
+            key = key.decode('utf-8')
 
+        if isinstance(key, mpf):
+            if mpmath.isnan(key):
+                return None
 
-    def get(self, key, default=None):
+            if mpmath.isinf(key):
+                return None
+
+        cur_key = self.manipulate_key(key, value)
+        return self.redis.keys(cur_key + '*')
+
+    def values(self, key):
         '''
         Checks the cache for a key and returns the contents if it exists
         otherwise it returns the default value
@@ -132,33 +123,26 @@ class HashtableWrapper():
         Returns:
             List of items stored with the cache key otherwise the default value
         '''
-        if isinstance(key, bytes):
-            key = key.decode('utf-8')
-
-        if isinstance(key, mpf):
-            if mpmath.isnan(key):
-                return default
-
-            if mpmath.isinf(key):
-                return default
-
-        # Normalize the key
-        old_keys, cur_key = self.manipulate_key(key)
-
-        # Dig through the old keys to see if we have a match
-        for k in old_keys:
-            val = self.redis.lrange(k, 0, -1)
-            if val:
-                return val
         
         # And now the current key
-        val = self.redis.lrange(cur_key, 0, -1)
-        if val:
-            return val
-        
-        # If we made it here, there was no match so return the default value
-        return default
+        keys = self.keys(key, None)
+        for key in keys:
+            # compressed = self.redis.get(key)
+            # yield zlib.decompress(compressed)
+            yield self.redis.get(key)
+    
 
+    def scan(self, match=None, count=1000):
+
+        if match is None:
+            match = '*'
+
+        match = self.side + ':' + match + ':*'
+
+        cursor = '0'
+        while cursor != 0:
+            cursor, data = self.redis.scan(cursor=cursor, match=match, count=count)
+            yield data
 
     def set(self, key, value):
         '''
@@ -180,56 +164,37 @@ class HashtableWrapper():
 
             if mpmath.isinf(key):
                 return value
-
+        
         # Normalize the key
-        old_keys, cur_key = self.manipulate_key(key)
+        cur_key = self.manipulate_key(key, value)
 
-        value = bytes(value.__repr__(), 'utf-8')
+        value = bytes(repr(value), 'utf-8')
+        # value = zlib.compress(bytes(repr(value), 'utf-8'))
 
         # add the value to the current key if it's not there already
         self._store(cur_key, value)
 
-        # values = self.redis.lrange(cur_key, 0, -1)  # get all list values
-        # if value not in values:
-        #     self.redis.lpush(cur_key, value)
-
-        # # add the value to all previous keys if it's not in any of them either
-        for key in old_keys:
-            self._store(key, value)
-        #     values = self.redis.lrange(key, 0, -1)
-        #     if value not in values:
-        #         self.redis.lpush(key, value)
-
-        return value
 
     def _store(self, key, value):
-        if key not in self._cache:
-            self._cache[key] = []
-        
-
-        if value not in self._cache[key]:
-            self._cache[key].append(value)
+        # self._cache[key] = value
+        self.redis.set(key, value)
 
     def commit(self):
-        pipe = self.redis.pipeline(transaction=False)
-        for key in self._cache.keys():
+        pass
+        # pipe = self.redis.pipeline(transaction=False)
+        # for key in self._cache.keys():
+        #     values = pipe.set(key, self._cache[key])
 
-            values = self.redis.lrange(key, 0, -1)
+        # self._cache = {}
 
-            for value in self._cache[key]:
-                if value not in values:
-                    pipe.lpush(key, value)
-
-        self._cache = {}
-
-        pipe.execute()
+        # pipe.execute()
 
 if __name__ == '__main__':
 
     from dotenv import load_dotenv
     load_dotenv()
 
-    ht = HashtableWrapper(14, 8)
+    ht = HashtableWrapper('lhs')
     ht.redis.flushall()
 
     value = (1, (2,3,4), (5,6,7))
@@ -252,9 +217,6 @@ if __name__ == '__main__':
     ht.accuracy = 3
     test = ht.get(key)
     assert(test[0] == b'(1, (2, 3, 4), (5, 6, 7))')
-
-    history = ht.get_history()
-    assert(len(history) == 2), 'History should be 2 at this point'
 
     # make sure history updates
     ht.accuracy = 2

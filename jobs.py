@@ -20,6 +20,7 @@ from mpmath import mpf, mpc
 log = logging.getLogger(__name__)
 
 work_queue_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=os.getenv('WORK_QUEUE_DB'))
+redis_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
 
 
 def ping(timestamp):
@@ -42,7 +43,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
         you have to generate all sequences, do an itertools.product() then index that list using sequence_index
     '''
 
-    db = HashtableWrapper(accuracy=accuracy)
+    db = HashtableWrapper(side)
 
     # Get the actual function from the name passed in
     algo = getattr(algorithms, algo_name)
@@ -58,7 +59,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
 
     for args in args_list:
 
-        # utils.debug(log, f'Starting {algo.__name__} {a_coeff} {b_coeff} at {datetime.now() - start}')
+        utils.info(log, f'Starting {algo.__name__} at {datetime.now() - start}')
 
         # Call the algorithm function
         st = datetime.now()
@@ -73,10 +74,11 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
 
         algo_times.append( (datetime.now() - st).total_seconds() )
 
+        utils.info(log, f'{algo.__name__} value:{value}')
+
         # Loop through all the postproc functions defined in postproc.py
         for fn in funcs:
             
-            # utils.info(log, f'a:{a_coeff} b:{b_coeff} fn:{fn.__name__} value:{value}')
             # utils.info(log, f'[{datetime.now() - start}] fn:{fn.__name__} value:{value}')
 
             # run the algo value through the postproc function
@@ -91,18 +93,15 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
                 fn.type_id = 0 # identity function
                 result = value
 
+            utils.info(log, f'post:{fn.__name__} value:{result}')
+
             post_times.append( (datetime.now() - st).total_seconds() )
             
             if mpmath.isnan(result) or mpmath.isinf(result):
                 continue
 
-            # store the result in the hashtable along with the
-            # coefficients and other arguments that generated it
 
-            # if algo.type_id != 0: # rational function
-            #     args = ''
-
-            algo_data = (side, algo.type_id, fn.type_id, result, repr(args), sequence_index, a_gen, b_gen)
+            algo_data = (side, algo.type_id, fn.type_id, result, args, sequence_index, a_gen, b_gen)
 
 
             # verify = reverse_solve(algo_data)
@@ -112,10 +111,10 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
             if isinstance(result, mpc):
                 # If complex, send the real part, imaginary part, 
                 # and the fractional parts of each
-                keys = set([result.real, result.imag, mpmath.frac(result.real), mpmath.frac(result.imag)])
+                keys = set([mpmath.frac(result.real), mpmath.frac(result.imag)])
             else:
                 # If real, just send itself and the fractional part
-                keys = set([result, mpmath.frac(result)])
+                keys = set([mpmath.frac(result)])
 
 
             # remove any values contained in the blacklist
@@ -124,6 +123,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
             # finally, send the keys and values to redis
             for key in keys:
                 redis_start = datetime.now()
+                utils.info(log, f'setting key {key}')
                 db.set(key, algo_data)
                 redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
@@ -142,7 +142,8 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
 
     elapsed = (datetime.now() - start).total_seconds()
 
-    utils.info(log, f'total:{elapsed} algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} commit: {commit_time}')
+    if len(redis_times):
+        utils.info(log, f'elapsed:{elapsed} algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} len(redis): {len(redis_times)} avg(redis): {sum(redis_times) / len(redis_times)} commit: {commit_time}')
     # return test
 
 
@@ -182,8 +183,11 @@ def wait(min, max, silent):
         # Wait a little bit before checking if more work has completed
         time.sleep(1)
 
+        if 0 == worker_count:
+            utils.warn(log, 'There are no workers')
+
         if not silent:
-            utils.printProgressBar(total_work - default_queue.count + min, total_work - min, prefix=f'Waiting {total_work - default_queue.count + min} / {total_work - min}') # eta not working, suffix=f'ETA: {eta}')
+            utils.printProgressBar(total_work - default_queue.count + min, total_work - min, prefix=f'Waiting {total_work - default_queue.count + min} / {total_work - min}') 
 
     if max == 0:
 
@@ -210,13 +214,44 @@ def wait(min, max, silent):
 
             if idle_workers < len(workers):
                 time.sleep(1)        
-    
 
-def find_matches(vals_list):
-    
-    matches = set()
+def queue_search(lhs_keys, sync):
 
-    for lhs_val, rhs_val in vals_list:  
+    local_redis = Redis(db=os.getenv('WORK_QUEUE_DB'))
+    q = Queue(connection=local_redis)
+
+    rhs_db = HashtableWrapper('rhs')
+
+    # key_matches() enumerates all the keys in the hashtable from the left hand side,
+    # and finds a match on the right hand side.  
+    for lhs_key in lhs_keys:
+
+        _, key_value, _ = str(lhs_key, 'utf-8').split(':')
+
+        for rhs_keys in rhs_db.scan(key_value):
+            
+            if rhs_keys:
+                if sync:
+                    find_matches(lhs_key, rhs_keys)
+                else:
+                    q.enqueue(find_matches, lhs_key, rhs_keys)
+            
+
+def find_matches(lhs_key, rhs_keys):
+    
+    lhs_db = HashtableWrapper('lhs')
+    rhs_db = HashtableWrapper('rhs')
+    match_db = HashtableWrapper('match')
+
+    lhs_val = lhs_db.redis.get(lhs_key)
+    _, key_value, _ = str(lhs_key, 'utf-8').split(':')
+
+    for rhs_key in rhs_keys:  
+        
+        rhs_val = rhs_db.redis.get(rhs_key)
+
+        if rhs_val is None:
+            continue
 
         # Expand the algorithm arguments etc from the data in the hashtable
         # Underscore just means we are ignoring that entry
@@ -242,23 +277,21 @@ def find_matches(vals_list):
             # if both sides are just using the identity() post proc (noop)
             # then add it to the matches.
             if lhs_postproc_id == 0 and rhs_postproc_id == 0:
-                matches.add( (lhs_val, rhs_val) )
+                match_db.set(key_value, (lhs_val, rhs_val) )
             elif lhs_postproc_id != rhs_postproc_id:
                 # if both sides are not using the same postproc, also add it
-                matches.add( (lhs_val, rhs_val) )
+                match_db.set(key_value, (lhs_val, rhs_val) )
         else:
             pass
             # They don't match when we have only added the fractional part
             # '0.33333333333'  != '3.33333333333'
     
-    return matches
-
-def reverse_solve(algo_data):
+def reverse_solve(side, algo_data):
     '''
     Takes the data we are going to store and solves it to 
     verify we get the result back
     '''
-    ht = HashtableWrapper(db=0, accuracy=8)
+    ht = HashtableWrapper(side)
 
     if isinstance(algo_data, str) or isinstance(algo_data, bytes):
         raise Exception('You forgot to unpack algo_data')

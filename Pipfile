@@ -13,6 +13,7 @@ python-dotenv = "*"
 mpmath = "*"
 redis-py-cluster = "*"
 supervisor = "*"
+msgpack = "*"
 
 [requires]
 python_version = "3.7"
