@@ -59,7 +59,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
 
     for args in args_list:
 
-        utils.info(log, f'Starting {algo.__name__} at {datetime.now() - start}')
+        # utils.info(log, f'Starting {algo.__name__} at {datetime.now() - start}')
 
         # Call the algorithm function
         st = datetime.now()
@@ -74,7 +74,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
 
         algo_times.append( (datetime.now() - st).total_seconds() )
 
-        utils.info(log, f'{algo.__name__} value:{value}')
+        # utils.info(log, f'{algo.__name__} value:{value}')
 
         # Loop through all the postproc functions defined in postproc.py
         for fn in funcs:
@@ -93,7 +93,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
                 fn.type_id = 0 # identity function
                 result = value
 
-            utils.info(log, f'post:{fn.__name__} value:{result}')
+            # utils.info(log, f'post:{fn.__name__} value:{result}')
 
             post_times.append( (datetime.now() - st).total_seconds() )
             
@@ -123,7 +123,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
             # finally, send the keys and values to redis
             for key in keys:
                 redis_start = datetime.now()
-                utils.info(log, f'setting key {key}')
+                # utils.info(log, f'setting key {key}')
                 db.set(key, algo_data)
                 redis_times.append( (datetime.now() - redis_start).total_seconds() )
 
@@ -226,7 +226,7 @@ def queue_search(lhs_keys, sync):
     # and finds a match on the right hand side.  
     for lhs_key in lhs_keys:
 
-        _, key_value, _ = lhs_key.split(':')
+        _, key_value, _ = str(lhs_key).split(':')
 
         for rhs_keys in rhs_db.scan(key_value):
             
@@ -244,7 +244,7 @@ def find_matches(lhs_key, rhs_keys):
     match_db = HashtableWrapper('match')
 
     lhs_val = lhs_db.redis.get(lhs_key)
-    _, key_value, _ = lhs_key.split(':')
+    _, key_value, _ = str(lhs_key).split(':')
 
     for rhs_key in rhs_keys:  
         

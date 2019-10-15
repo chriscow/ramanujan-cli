@@ -1,6 +1,20 @@
 version: "3.7"
 
 services:
+  redis-cluster:
+    environment:
+     IP: 0.0.0.0
+     SENTINEL: ${REDIS_USE_SENTINEL}
+     STANDALONE: ${REDIS_USE_STANDALONE}
+    build:
+      context: .
+      args:
+        redis_version: '5.0.5'
+    hostname: server
+    ports:
+      - '7000-7050:7000-7050'
+      - '5000-5010:5000-5010'
+
   redis:
     image: redis:latest
     ports:
@@ -27,12 +41,15 @@ services:
 
     environment:
       - DOCKER=1
+      - REDIS_CLUSTER_HOST=redis
+      - REDIS_CLUSTER_PORT=7000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - WORK_QUEUE_DB=15
       - CONFIG_DB=14
       - LHS_KEY=lhs
       - RHS_KEY=rhs
+
   rq-dashboard:
     image: rq-dashboard
     build:
@@ -49,25 +66,25 @@ services:
     depends_on:
       - redis
 
-  ramanujan:
-    image: ramanujan
-    build:
-      context: .
-      dockerfile: Dockerfile
+  # ramanujan:
+  #   image: ramanujan
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
 
-    volumes:
-      - ./:/ramanujan-cli
+  #   volumes:
+  #     - ./:/ramanujan-cli
 
-    links:
-      - redis
+  #   links:
+  #     - redis
 
-    depends_on:
-      - redis
-      - workers
-      - rq-dashboard
+  #   depends_on:
+  #     - redis
+  #     - workers
+  #     - rq-dashboard
 
-    environment:
-      - DOCKER=1
+  #   environment:
+  #     - DOCKER=1
 
-    stdin_open: true
-    tty: true
+  #   stdin_open: true
+  #   tty: true
