@@ -108,4 +108,5 @@ if __name__ == '__main__':
     cli.add_command(commands.generate)
     cli.add_command(commands.search)
     cli.add_command(commands.save)
+    cli.add_command(commands.migrate)
     cli()

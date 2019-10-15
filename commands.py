@@ -34,6 +34,27 @@ def status():
         time.sleep(1)
         count = q.count
 
+@click.command()
+def migrate():
+    if os.getenv('REDIS_CLUSTER_HOST'):
+        startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
+        try:
+            source = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+        except:
+            print('Did you be sure to ' + utils.bcolors.OKBLUE + 'export REDIS_CLUSTER_IP=0.0.0.0' + utils.bcolors.ENDC)
+    else:
+        source = Redis(os.getenv('REDIS_HOST'), os.getenv('REDIS_PORT'))
+        
+    dest = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
+    pipe = dest.pipeline(transaction=False)
+
+    for keys in source.scan_iter():
+        for key in keys:
+            pipe.set(key, source.get(key))
+
+        pipe.execute()    
+        
+
 
 @click.command()
 def clear():
