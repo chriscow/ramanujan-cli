@@ -160,7 +160,7 @@ class HashtableWrapper():
         """
         cursors = {}
         nodeData = {}
-        for master_node in self.connection_pool.nodes.all_masters():
+        for master_node in self.redis.connection_pool.nodes.all_masters():
             cursors[master_node["name"]] = "0"
             nodeData[master_node["name"]] = master_node
 
@@ -169,7 +169,7 @@ class HashtableWrapper():
                 if cursors[node] == 0:
                     continue
 
-                conn = self.connection_pool.get_connection_by_node(nodeData[node])
+                conn = self.redis.connection_pool.get_connection_by_node(nodeData[node])
 
                 pieces = ['SCAN', cursors[node]]
                 if match is not None:
@@ -183,7 +183,7 @@ class HashtableWrapper():
 
                 # if you don't release the connection, the driver will make another, and you will hate your life
                 self.connection_pool.release(conn)
-                cur, resp = self._parse_scan(raw_resp)
+                cur, resp = self.redis._parse_scan(raw_resp)
                 cursors[node] = cur
 
                 yield resp
