@@ -19,7 +19,7 @@ job_result_ttl=60 * 30 # longest amount of time before you check on a job's (com
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
-constants = [ 'mpmath.sqrt(3)', 'mpmath.sqrt(5)', 'mpmath.sqrt(7)',
+constants = [
 'mpmath.phi', 
 'mpmath.e',
 'mpmath.euler', 
@@ -88,11 +88,7 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-2,4], [-2,-1], [-2,2] ]], None ]
-        },
-        {
-        "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-2,4], [1,2], [-2,2] ]], None ]
+        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
         }
     ],
 
@@ -163,7 +159,7 @@ rhs = {
 
     # Take the left-side algorithm result and run it through all the functions in postproc.py
     # and save those values too.  Takes much longer though
-    "run_postproc": True,
+    "run_postproc": False,
 
     # If the algorithm (or postproc functions) results in any of these values, 
     # don't store it

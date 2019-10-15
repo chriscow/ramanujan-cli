@@ -270,8 +270,10 @@ def find_matches(lhs_key, rhs_keys):
         # Check the absolute value of both sides and make sure they are the same
         # if mpmath.fabs(lhs_result)[:8] == mpmath.fabs(rhs_result):
         #     matches.add((lhs_val, rhs_val))
-        lhs_result = mpmath.fabs(lhs_result)
-        rhs_result = mpmath.fabs(rhs_result)
+
+        # matching only the fractional part
+        lhs_result = mpmath.frac(mpmath.fabs(lhs_result))
+        rhs_result = mpmath.frac(mpmath.fabs(rhs_result))
 
         if str(lhs_result)[:mpmath.mp.dps - 2] == str(rhs_result)[:mpmath.mp.dps - 2]:
             # if both sides are just using the identity() post proc (noop)
