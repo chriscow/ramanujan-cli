@@ -38,7 +38,10 @@ def run():
     rhs_cache = set()
 
     index = 0
-    total = len(list(db.scan())[0])
+    sizes = db.redis.dbsize()
+    total = 0
+    for key in sizes.keys():
+        total += sizes[key]
 
     # By the time we reach here, if there were any high-precision matches, 
     # dump out the data to the screen
