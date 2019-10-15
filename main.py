@@ -42,7 +42,7 @@ REDIS_PORT=6379
 WORK_QUEUE_DB=15
 CONFIG_DB=14
 LHS_KEY=lhs
-RHS_KEY=lhs
+RHS_KEY=rhs
             ''')
 
     dotenv.load_dotenv()
