@@ -60,13 +60,7 @@ def run():
             lhs_output = ''
             rhs_output = ''
 
-            # Unpack to get the constant
-            # sequence generator function name and args
-            func_name, func_args = lhs_a_gen
-            func_args = eval(func_args)
-            if func_name == 'polynomial_sequence':
-                poly_range, poly_x_values = func_args
-                const = poly_x_values
+
 
             #
             # output the fancy version for known functions
@@ -77,6 +71,14 @@ def run():
                 numerator = lhs_args[0][0]
                 denominator = lhs_args[1][0]
 
+                # Unpack to get the constant
+                # sequence generator function name and args
+                func_name, func_args = lhs_a_gen
+                func_args = eval(func_args)
+                if func_name == 'polynomial_sequence':
+                    poly_range, poly_x_values = func_args
+                    const = poly_x_values
+                    
                 post = postprocs[lhs_post].__name__ + f'( {const} ) == '
                 if lhs_post == 0: #identity
                     post = ''
