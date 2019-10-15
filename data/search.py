@@ -121,7 +121,7 @@ def run(max_precision=50, sync=False, silent=False):
 
             if not silent:
                 index += 1
-                utils.printProgressBar(chunk_id, int(len(combinations) / combos_per_chunk), prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{int(len(combinations) / combos_per_chunk)}')
+                utils.printProgressBar(chunk_id, int(len(combinations) / combos_per_chunk), prefix=f'{spinner[index % len(spinner)]} Queueing {chunk_id}/{int(len(combinations) / combos_per_chunk)} ({cur}/{dbsize})')
 
             chunk_id += 1
 
