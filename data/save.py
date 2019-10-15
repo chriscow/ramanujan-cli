@@ -60,6 +60,12 @@ def run():
             lhs_output = ''
             rhs_output = ''
 
+            # sequence generator function name and args
+            func_name, func_args = lhs_a_gen
+            poly_range, poly_x_values = eval(func_args)
+
+            const = poly_x_values
+
             #
             # output the fancy version for known functions
             #
@@ -68,13 +74,6 @@ def run():
 
                 numerator = lhs_args[0][0]
                 denominator = lhs_args[1][0]
-
-                # sequence generator function name and args
-                func_name, func_args = lhs_a_gen
-                poly_range, poly_x_values = eval(func_args)
-
-                const = poly_x_values
-
 
                 post = postprocs[lhs_post].__name__ + f'( {const} ) == '
                 if lhs_post == 0: #identity
