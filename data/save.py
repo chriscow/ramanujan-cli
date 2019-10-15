@@ -91,6 +91,14 @@ def run():
                 else:
                     lhs_output = f'LHS: {post} {lhs_result}'
             else:
+                # Unpack to get the constant
+                # sequence generator function name and args
+                func_name, func_args = lhs_a_gen
+                func_args = eval(func_args)
+                if func_name == 'polynomial_sequence':
+                    poly_range, poly_x_values = func_args
+                    const = poly_x_values
+                    
                 lhs_output = f'LHS: const:{const} {postprocs[lhs_post].__name__}( {algos[lhs_algo_id].__name__} (a:{lhs_a_gen} b:{lhs_b_gen}))'
 
             # sequence_pairs = generate_sequences(rhs_a_gen, rhs_b_gen)
