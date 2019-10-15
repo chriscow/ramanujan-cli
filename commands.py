@@ -59,7 +59,9 @@ def migrate():
             pipe.set(key, source.get(key))
             index += 1
 
-        pipe.execute()    
+        if len(keys):
+            pipe.execute()    
+            
         utils.printProgressBar(index, dbsize)
 
 
