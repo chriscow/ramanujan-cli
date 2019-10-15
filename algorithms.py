@@ -84,7 +84,7 @@ def nested_radical(a, b):
     return root
 
 nested_radical.type_id = 2
-nested_radical.validate = lambda a,b: len(b) and sum(b)
+nested_radical.validate = lambda a,b: len(b) and sum(b) and b[0] != 0
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #                                                                             #
