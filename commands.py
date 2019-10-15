@@ -37,13 +37,18 @@ def status():
 
 @click.command()
 def clear():
-    startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
-    try:
-        redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
-    except:
-        print('Did you be sure to ' + utils.bcolors.OKBLUE + 'export REDIS_CLUSTER_IP=0.0.0.0' + utils.bcolors.ENDC)
+
+    # Check for local redis or cluster
+    if os.getenv('REDIS_CLUSTER_HOST'):
+        startup_nodes = [{"host": os.getenv('REDIS_CLUSTER_HOST'), "port": os.getenv('REDIS_CLUSTER_PORT')}]
+        try:
+            redis = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, skip_full_coverage_check=True)
+        except:
+            print('Did you be sure to ' + utils.bcolors.OKBLUE + 'export REDIS_CLUSTER_IP=0.0.0.0' + utils.bcolors.ENDC)
+    else:
+        redis = Redis(os.getenv('REDIS_HOST'), os.getenv('REDIS_PORT'))
         
-    redis.flushall()
+    redis.flushdb()
 
     redis_conn = Redis(host=os.getenv('REDIS_HOST') , db=os.getenv('WORK_QUEUE_DB'))
     q = Queue(connection=redis_conn)
