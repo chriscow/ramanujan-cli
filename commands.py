@@ -13,6 +13,8 @@ import config
 import jobs
 import utils    
 
+from data.wrapper import HashtableWrapper
+
 from rediscluster import RedisCluster
 
 import data.generate
@@ -20,6 +22,9 @@ import data.search
 import data.save
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
+formatter = utils.CustomConsoleFormatter()
 
 @click.command()
 def status():
@@ -30,7 +35,7 @@ def status():
     total = count
 
     while count > 0:
-        utils.printProgressBar(total - count, total, prefix=f'Processing {total - count} of {total}', suffix='          ')
+        utils.printProgressBar(total - count, total, prefix=f'Processing {total - count} of {total}')
         time.sleep(1)
         count = q.count
 
@@ -97,6 +102,11 @@ def search(precision, sync, silent):
         - make a first pass and find all key matches between the two sides
         - with all matches, 
     '''
+    for find in config.verify_finds:
+        verify('lhs', eval(find), f'frac({find})')
+    for find in config.verify_finds:
+        verify('rhs', eval(find), f'frac({find})')   
+
     data.search.run(precision, sync, silent)
 
 
@@ -115,7 +125,7 @@ def generate(rhs, lhs, sync, log_level, silent):
 
     Those workers post their results directly to the data.
     '''
-    logging.basicConfig(filename=f'generate.log',level=eval(log_level))
+    logging.basicConfig(filename='generate.log')
 
     start = datetime.now()  # keep track of what time we started
     log.info(f'[generate] rhs:{rhs} lhs:{lhs} started at {start}')
@@ -126,7 +136,7 @@ def generate(rhs, lhs, sync, log_level, silent):
         lhs = True
 
     if rhs: # generate the work items for the right hand side
-        print()
+        print('')
         print('\nGENERATE RHS')
 
         if os.getenv('RHS_KEY') is None:
@@ -134,8 +144,12 @@ def generate(rhs, lhs, sync, log_level, silent):
 
         data.generate.run(config.rhs, os.getenv('RHS_KEY'), False, sync, silent)
 
+        for find in config.verify_finds:
+            verify('rhs', eval(find), f'frac({find})')
+
+
     if lhs: # generate the work items for the left hand side
-        print()
+        print('')
         print('\nGENERATE LHS')
 
         if os.getenv('LHS_KEY') is None:
@@ -143,9 +157,26 @@ def generate(rhs, lhs, sync, log_level, silent):
 
         data.generate.run(config.lhs, os.getenv('LHS_KEY'), True, sync, silent)
 
-    print()
+        for find in config.verify_finds:
+            verify('lhs', eval(find), f'frac({find})')
+
+    log.info(f'Generation complete in {datetime.now() - start}')
+    print('')
+
+def verify(side, value, what):
+    db = HashtableWrapper(side)
+    value = mpmath.mpf(value)
+    key = db.manipulate_key(mpmath.frac(value))
+    redis = Redis()
+    keys = redis.keys(key)
+    assert len(keys), f'Expected to find {what} {key}'
 
 @click.command()
 def save():
+    for find in config.verify_finds:
+        verify('lhs', eval(find), f'frac({find})')
+    for find in config.verify_finds:
+        verify('rhs', eval(find), f'frac({find})')   
+        
     data.save.run()
 

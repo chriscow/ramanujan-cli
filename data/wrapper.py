@@ -91,7 +91,11 @@ class HashtableWrapper():
             key += ':*'
         else:
             if isinstance(value, tuple):
-                value = bytes(repr(value), 'utf-8')
+                sValue = repr(value)
+                value = bytes(sValue, 'utf-8')
+            else:
+                raise Exception("Expected value as tuple")
+            
 
             value_hash = hashlib.sha256(value).hexdigest()
             key +=  ':' + value_hash
@@ -212,11 +216,11 @@ class HashtableWrapper():
         # Normalize the key
         cur_key = self.manipulate_key(key, value)
 
-        value = bytes(repr(value), 'utf-8')
+        bvalue = bytes(repr(value), 'utf-8')
         # value = zlib.compress(bytes(repr(value), 'utf-8'))
 
         # add the value to the current key if it's not there already
-        self._store(cur_key, value)
+        self._store(cur_key, bvalue)
 
 
     def _store(self, key, value):
@@ -232,6 +236,20 @@ class HashtableWrapper():
         # self._cache = {}
 
         # pipe.execute()
+
+    def size(self):
+        total = 0
+        if self.cluster:
+            sizes = self.redis.dbsize()
+            if isinstance(sizes, dict):
+                for key in sizes.keys():
+                    total += sizes[key]
+            else:
+                raise Exception('We are in cluster mode bug dbsize didnt return a dict')
+        else:
+            total = len(self.redis.keys(self.side + ':*'))
+
+        return total
 
 if __name__ == '__main__':
 

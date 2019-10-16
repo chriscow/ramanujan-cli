@@ -8,6 +8,11 @@ from datetime import datetime, timedelta
 from subprocess import Popen, DEVNULL
 from multiprocessing import cpu_count
 
+import utils
+import logging
+
+log = logging.getLogger(__name__)
+
 #
 # The stuff in this main.py file is just to handle command line arguments
 # and check to see if the dependent programs are running (celery worker, redis-server)
@@ -102,6 +107,15 @@ def check_worker_status():
 if __name__ == '__main__':
 
     check_environment()
+
+    # Set up a logger
+    log.setLevel(logging.DEBUG)
+
+    formatter = utils.CustomConsoleFormatter()
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    log.addHandler(console_handler)
 
     cli.add_command(commands.status)
     cli.add_command(commands.clear)

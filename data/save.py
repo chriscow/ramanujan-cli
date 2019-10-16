@@ -23,13 +23,7 @@ def run():
 
     db = HashtableWrapper('match')
 
-    i = 0
-    filename = f'search-{i}.result.txt' 
-    while os.path.exists(filename):
-        i += 1
-        filename = f'search-{i}.result.txt' 
-
-    output = open(filename, 'w')
+    output = []
 
 
     postprocs = utils.get_funcs(postproc)
@@ -38,10 +32,9 @@ def run():
     rhs_cache = set()
 
     index = 0
-    sizes = db.redis.dbsize()
-    total = 0
-    for key in sizes.keys():
-        total += sizes[key]
+    total = db.size()
+
+    count = 0
 
     # By the time we reach here, if there were any high-precision matches, 
     # dump out the data to the screen
@@ -53,8 +46,8 @@ def run():
 
             # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
 
-            _, lhs_algo_id, lhs_post, lhs_result, lhs_args, lhs_seq_idx, lhs_a_gen, lhs_b_gen = eval(lhs)
-            _, rhs_algo_id, rhs_post, rhs_result, rhs_args, rhs_seq_idx, rhs_a_gen, rhs_b_gen = eval(rhs)
+            _, lhs_algo_id, lhs_post, lhs_result, lhs_args, lhs_a_gen, lhs_b_gen = lhs
+            _, rhs_algo_id, rhs_post, rhs_result, rhs_args, rhs_a_gen, rhs_b_gen = rhs
 
             # print('')
             # print('-' * 60)
@@ -76,11 +69,11 @@ def run():
 
                 # Unpack to get the constant
                 # sequence generator function name and args
-                func_name, func_args = lhs_a_gen
+                _, func_name, func_args = lhs_a_gen.split(':')
                 func_args = eval(func_args)
                 if func_name == 'polynomial_sequence':
                     poly_range, poly_x_values = func_args
-                    const = poly_x_values
+                    const = poly_x_values[0]
                     
                 post = postprocs[lhs_post].__name__ + f'( {const} ) == '
                 if lhs_post == 0: #identity
@@ -131,20 +124,30 @@ def run():
                 continue
 
             # print(lhs_output)
-            output.write(lhs_output)
-            output.write('\n')
+            output.append(lhs_output)
+            output.append('\n')
             # print(rhs_output)
-            output.write(rhs_output)
+            output.append(rhs_output)
             # output.write('\n')
 
             rhs_cache.add(rhs_output)
             # print()
-            output.write('\n\n')
+            output.append('\n\n')
+            count += 1
+            index += 1
+            utils.printProgressBar(index, total, prefix=f'Building output {index} / {total}')
+    
+    i = 0
+    filename = f'search-{i}.result.txt' 
+    while os.path.exists(filename):
+        i += 1
+        filename = f'search-{i}.result.txt' 
 
-        index += 1
-        utils.printProgressBar(index, total, prefix=f'Writing output {index} / {total}')
-        
+    out = open(filename, 'w')
+    for line in output:
+        out.write(line)
+
     print()
-    print(f'Found {total} matches at {mpmath.mp.dps} decimal places')
+    print(f'Wrote {count} matches at {mpmath.mp.dps} decimal places in {filename}')
     print()
-    output.close()
+    out.close()

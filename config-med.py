@@ -16,6 +16,7 @@ min_workqueue_size = 10
 max_workqueue_size = 100 # maximum jobs in flight per worker before we wait for them to finish
 job_result_ttl=60 * 30 # longest amount of time before you check on a job's (complete) status
 
+verify_finds = [ 'mpmath.sqrt(3)', 'mpmath.phi', 'mpmath.e']
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
@@ -172,14 +173,14 @@ rhs = {
         },
         {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [-2,4], [-2,2], [-2,2] ]], range(0, 201))
+            "arguments": ([[ [0,4], [1,2], [0,2] ]], range(0, 201))
         }
     ],
 
     "b_sequences": [
         {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [-2,4], [-2,2], [-2,2] ]], range(0, 201))
+            "arguments": ([[ [0,4], [-1,2], [0,2] ]], range(0, 201))
         },
     ]
 }

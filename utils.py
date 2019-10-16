@@ -1,8 +1,11 @@
 import os
 import inspect
-from algorithms import *
 import mpmath
 from mpmath import mpf, mpc
+from collections import Iterable
+import logging
+
+import algorithms
 
 const_map = {
     mpmath.sqrt(3):'√3',
@@ -42,8 +45,6 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         length      - Optional  : character length of bar (Int)
         fill        - Optional  : bar fill character (Str)
     """
-    global console_columns
-
     total = float(total)
 
     percent = ("0.0") if total == 0 else ("{0:." + str(decimals) + "f}").format(100 * (iteration / total))
@@ -65,7 +66,7 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
 
 def cont_frac_to_string(a, b):
     
-    result = ' = ' + str(continued_fraction(a, b))
+    result = ' = ' + str(algorithms.continued_fraction(a, b))
 
     a = a[:4]
     b = b[:4]
@@ -85,7 +86,7 @@ def cont_frac_to_string(a, b):
 
 def nested_radical_to_string(a, b):
 
-    result = str(nested_radical(a,b)) + ' = '
+    result = str(algorithms.nested_radical(a,b)) + ' = '
 
     sign = ['+' if i > 0 else '-' for i in b] # get the sign
     b = [mpmath.fabs(i) for i in b]  # now normalize the sign for b (make it positive)
@@ -144,6 +145,20 @@ def get_funcs(module):
 
     return result
 
+
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
+def flatten(lis):
+     for item in lis:
+         if isinstance(item, Iterable) and not isinstance(item, str):
+             for x in flatten(item):
+                 yield x
+         else:        
+             yield item
+        
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -154,20 +169,29 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-def debug(log, msg):
-    log.debug(msg)
+class CustomConsoleFormatter(logging.Formatter):
+    """
+    Modify the way DEBUG messages are displayed.
 
-def info(log, msg):
-    print(bcolors.OKBLUE + msg + bcolors.ENDC)
-    log.info(msg)
+    """
+    def __init__(self, fmt="[%(module)s.%(funcName)s] %(asctime)s: %(message)s"):
+        logging.Formatter.__init__(self, fmt=fmt)
 
-def warn(log, msg):
-    print(bcolors.WARNING + msg + bcolors.ENDC)
-    log.warn(msg)
+    def format(self, record):
 
-def error(log, msg):
-    print(bcolors.FAIL + msg + bcolors.ENDC)
-    log.error(msg)
+        if record.levelno == logging.DEBUG:
+            record.msg = f'{bcolors.OKGREEN}{record.msg}{bcolors.ENDC}'
+        elif record.levelno == logging.INFO:
+            record.msg = f'{bcolors.OKBLUE}{record.msg}{bcolors.ENDC}'
+        elif record.levelno == logging.WARNING or record.levelno == logging.WARN:
+            record.msg = f'{bcolors.WARNING}{record.msg}{bcolors.ENDC}'
+        elif record.levelno == logging.ERROR:
+            record.msg = f'{bcolors.FAIL}{record.msg}{bcolors.ENDC}'
+
+        # Call the original formatter to do the grunt work
+        result = logging.Formatter.format(self, record)
+
+        return result
 
 if __name__ == '__main__':
 
@@ -194,23 +218,45 @@ if __name__ == '__main__':
     denominator = polynomial_to_string( (-2,1,0), mpf(mpmath.e))
     print(f'{numerator} / {denominator} = e / (e - 2)')
 
-    s = cont_frac_to_string( (4,1,0), (0,-1,0), f'{numerator} / {denominator}' )
+    a = algorithms.polynomial_sequence([[ [4,5], [1,2], [0,1] ]], range(0,201))[0]
+    b = algorithms.polynomial_sequence([[ [0,1], [-1,0], [0,1] ]], range(0,201))[0]
+    s = cont_frac_to_string(a, b)
     print(s)
 
     print()
-    s = nested_radical_to_string((1,0,0), (1,0,0))
+    a = [1] * 200
+    s = nested_radical_to_string(a, a)
     print(s)
 
     print()
-    s = nested_radical_to_string((1,0,0), (2,0,0))
+    b = [2] * 200
+    s = nested_radical_to_string(a, b)
     print(s)
 
     print()
-    s = nested_radical_to_string((1,0,0), (-1,0,0))
+    b = [-1] * 200
+    s = nested_radical_to_string(a, b)
     print(s)
 
     print()
-    s = nested_radical_to_string((1,0,0), (-2,0,0))
+    b = [-2] * 200
+    s = nested_radical_to_string(a, b)
     print(s)
 
     print('\nLook at the output to be sure utils.py passed')
+
+    # Set up a logger
+    my_logger = logging.getLogger("my_custom_logger")
+    my_logger.setLevel(logging.DEBUG)
+
+    my_formatter = CustomConsoleFormatter()
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(my_formatter)
+    my_logger.addHandler(console_handler)
+
+    my_logger.debug("This is a DEBUG-level message")
+    my_logger.info(bcolors.OKBLUE + "This is an INFO-level message" + bcolors.ENDC)
+    my_logger.warning("this is also a warning")
+    my_logger.error("this is an error")
+    my_logger.exception("this is an exception")

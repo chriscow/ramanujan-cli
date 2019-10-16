@@ -1,11 +1,19 @@
+import logging
+import utils
 import itertools, mpmath
 from mpmath import mpf, mpc
+
+# import multiprocessing as mp
+# cpus = mp.cpu_count()
+# pool = mp.Pool(processes=cpus)
+
 
 # The two main algorithms are rational_funciton for the left hand side
 # and continued_fraction for the right hand side.
 #
 # You can make more but be sure to add a type_id that is unique between
 # the other functions in this file.
+log = logging.getLogger(__name__)
 
 def rational_function(a, b):
     """
@@ -68,7 +76,7 @@ def continued_fraction(a, b=None):
     return mpf(res)
 
 continued_fraction.type_id = 1
-continued_fraction.validate = lambda a,b: len(b) and sum(b) and 0 not in b
+continued_fraction.validate = lambda a,b: len(b) and sum(b) # not true: and 0 not in b[1:]
 
 
 def nested_radical(a, b):
@@ -152,15 +160,42 @@ def solve(a_coeff, b_coeff, poly_range):
     # a_poly and b_poly are list of polynomial results
     return a_poly, b_poly
 
+
+# def async_polynomial_sequence(coeff_range, poly_x_values):
+
+#     global pool
+
+#     # Define an output queue
+#     output = mp.Queue()
+
+#     # results = [pool.apply(cube, args=(x,)) for x in range(1,7)]
+
+#     # check if we received an instance of mpmath constant
+#     if isinstance(poly_x_values, str) or isinstance(poly_x_values, mpf):
+#         if isinstance(poly_x_values, str):
+#             const = eval(poly_x_values)
+#         else:
+#             const = [poly_x_values]
+
+    
+#     result = [pool.apply(foo, args=(coeffs, poly_x_values)) for coeffs in coefficients(coeff_range)] 
+
+    # return list(utils.flatten(result))
+
+# def foo(coeffs, poly_range):
+#     return [solve_polynomial(coeffs[0], x) for x in poly_range]
+
 def polynomial_sequence(coeff_range, poly_x_values):
+
     result = []
 
     # check if we received an instance of mpmath constant
     if isinstance(poly_x_values, str) or isinstance(poly_x_values, mpf):
         if isinstance(poly_x_values, str):
-            const = eval(poly_x_values)
+            poly_x_values = [eval(poly_x_values)]
         else:
-            const = [poly_x_values]
+            poly_x_values = [poly_x_values]
+
 
     for coeffs in coefficients(coeff_range):
         result.append( [solve_polynomial(coeffs[0], x) for x in poly_x_values] )
@@ -267,7 +302,7 @@ if __name__ == "__main__":
     assert(res == 3)
 
     seq = list(integer_sequence([1,2,3], 2, 4, [3], 1))
-    assert(seq == [(3, 1, 1, 1, 1, 1, 1, 1, 1), (3, 1, 2, 1, 2, 1, 2, 1, 2), (3, 1, 3, 1, 3, 1, 3, 1, 3), (3, 2, 1, 2, 1, 2, 1, 2, 1), (3, 2, 2, 2, 2, 2, 2, 2, 2), (3, 2, 3, 2, 3, 2, 3, 2, 3), (3, 3, 1, 3, 1, 3, 1, 3, 1), (3, 3, 2, 3, 2, 3, 2, 3, 2), (3, 3, 3, 3, 3, 3, 3, 3, 3)])
+    assert(seq == [[3, 1, 1, 1, 1, 1, 1, 1, 1], [3, 1, 2, 1, 2, 1, 2, 1, 2], [3, 1, 3, 1, 3, 1, 3, 1, 3], [3, 2, 1, 2, 1, 2, 1, 2, 1], [3, 2, 2, 2, 2, 2, 2, 2, 2], [3, 2, 3, 2, 3, 2, 3, 2, 3], [3, 3, 1, 3, 1, 3, 1, 3, 1], [3, 3, 2, 3, 2, 3, 2, 3, 2], [3, 3, 3, 3, 3, 3, 3, 3, 3]])
 
     seq = list(integer_sequence([1,2],2,200,[1],1))
     res = continued_fraction(seq[1])

@@ -3,6 +3,9 @@ import time
 import itertools
 import logging
 import hashlib
+from datetime import datetime
+
+import concurrent.futures
 
 import mpmath
 from mpmath import mpf, mpc
@@ -12,6 +15,7 @@ from rq import Queue
 from rq.worker import Worker
 
 import algorithms
+import cache
 import config
 import jobs
 import utils
@@ -22,7 +26,7 @@ dotenv.load_dotenv()
 log = logging.getLogger(__name__)
 
 work_queue_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=os.getenv('WORK_QUEUE_DB'))
-
+redis_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
 
 
 def run(side, db, use_constants, sync=False, silent=False):
@@ -42,7 +46,9 @@ def run(side, db, use_constants, sync=False, silent=False):
     redis_conn = Redis(connection_pool=work_queue_pool)
     worker_count = len(Worker.all(connection=redis_conn))
 
-    utils.info(log, f'''
+    global redis_pool
+
+    print(f'''
 
     db: {db}
     use_constants: {use_constants}
@@ -64,12 +70,13 @@ def run(side, db, use_constants, sync=False, silent=False):
 
     # If we are doing the constants, another 100x
     # batch_size = batch_size * 10 if use_constants else batch_size
+    seq_cache = cache.SequenceCache(redis_pool)
         
     for algo in side["algorithms"]:
         for a_sequence, b_sequence in itertools.product(a_sequences, b_sequences):
             
             a_gen  = a_sequence["generator"]
-            a_args = a_sequence["arguments"]
+            a_args = a_sequence["arguments"] 
             b_gen  = b_sequence["generator"]
             b_args = b_sequence["arguments"]
 
@@ -89,110 +96,98 @@ def run(side, db, use_constants, sync=False, silent=False):
                         # we have a constant like 'mpmath.phi'
                         const = mpf(eval(const))
 
-                    # Total hack  :(
+                    # Total hack  :( Set the second param to just the constant
                     a_args[1] = [const]
                     b_args[1] = [const]
                     
+                    a_hash = seq_cache.generate(a_gen, a_args)
+                    b_hash = seq_cache.generate(b_gen, b_args)
 
                     # queue_work generates several jobs based on the a and b ranges
                     _queue_work(db, precision, batch_size, algo.__name__, 
-                            a_gen, a_args, 
-                            b_gen, b_args, 
+                            a_hash, 
+                            b_hash, 
                             black_list, run_postproc, 
                             sync=sync, silent=silent, what=f'const:{utils.get_const_str(const)}')
                                         
             else:
+                a_hash = seq_cache.generate(a_gen, a_args)
+                b_hash = seq_cache.generate(b_gen, b_args)
+
                 _queue_work(db, precision, batch_size, algo.__name__, 
-                    a_gen, a_args, 
-                    b_gen, b_args, 
+                    a_hash, 
+                    b_hash, 
                     black_list, run_postproc, 
-                    sync=sync, silent=silent)
+                    sync=sync, silent=silent, what=algo.__name__)
 
     # wait for remaining work
     jobs.wait(0, 0, silent)
     
 
 
-def _queue_work(db, precision, batch_size, algo_name, a_generator, a_gen_args, b_generator, b_gen_args, black_list, run_postproc, sync=False, silent=False, what=''):
+def _queue_work(db, precision, batch_size, algo_name, a_seq_hash, b_seq_hash, black_list, run_postproc, sync=False, silent=False, what=''):
     '''
     Calls the generator for the a-sequence and b-sequence, then
     queues the algorithm calculations to be run and stored in the database.
     '''
 
+    global redis_pool
     what = what[:15]
     
     arg_list = []  # holds a subset of the coefficient a-range
     work = set()  # set of all jobs queued up to know when we are done
 
-    gen_data = repr( (a_generator, a_gen_args, b_generator, b_gen_args) )
+    # gen_data = repr( (a_generator, a_gen_args, b_generator, b_gen_args) )
+    sequence_cache = cache.SequenceCache(redis_pool)
 
-    # Generate the sequences
-    a_seq = a_generator(*a_gen_args)
-    b_seq = b_generator(*b_gen_args)
+    # generate lists of sequences
+    a_seq = sequence_cache.get(a_seq_hash)
+    b_seq = sequence_cache.get(b_seq_hash)
 
-    # Serialize
-
-    # for the progress bar
+    # Create pairs of sequences using every combination of each sequence
     sequence_pairs = list(itertools.product(a_seq, b_seq))
+
+    # progress bar
     total_work = len(sequence_pairs)
     count = 0
     index = 0
     spinner = '|/-\\'
 
+    logging.debug(f'[_queue_work] {a_seq_hash} {b_seq_hash}')
+
     redis_conn = Redis(connection_pool=work_queue_pool)
     worker_count = len(Worker.all(connection=redis_conn))
 
-    sequence_index = 0
-    for args in sequence_pairs:
+    # all_args = [(db, precision, algo_name, pair, a_seq_hash, b_seq_hash, black_list, run_postproc)
+    #     for pair in sequence_pairs]
 
-        arg_list.append(args)
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    #     executor.map(jobs.store, all_args, chunksize=batch_size)
 
-        # When the list of a's and b's are up to batch_size, queue a job
-        if count % batch_size == 0:
-            # We are queuing arrays of coefficients to work on
-            if sync:
-                # if we are debugging, don't process this job in a separate program
-                # (keeps it synchronous and all in the same process for debugging)
-                jobs.store(db, precision, algo_name, arg_list, 
-                    sequence_index,
-                    (a_generator.__name__, repr(a_gen_args)),
-                    (b_generator.__name__, repr(b_gen_args)),
-                    black_list, run_postproc)
-            else:
-                # adding .delay after the function name queues it up to be 
-                # executed by a Celery worker in another process / machine 
-                enqueue(db, precision, algo_name, arg_list, 
-                        sequence_index,
-                        (a_generator.__name__, repr(a_gen_args)),
-                        (b_generator.__name__, repr(b_gen_args)),
-                        black_list, run_postproc)
-                
-                jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
 
-            arg_list = []
-        
-        count += 1        
-        sequence_index += 1
 
-        if not silent:
-            index += 1
-            utils.printProgressBar(count, total_work, prefix=f'{spinner[index % len(spinner)]} Queueing {what} {count}/{total_work}', suffix='     ')
 
-    # If there are any left over coefficients whos array was not evenly
-    # divisible by the batch_size at the end, queue them up also
-    if len(arg_list):
+    for pairs in utils.chunks(sequence_pairs, batch_size):
+
+        args = (db, precision, algo_name, pairs, a_seq_hash, b_seq_hash, black_list, run_postproc)
+
+        # We are queuing arrays of coefficients to work on
         if sync:
-            jobs.store(db, precision, algo_name, arg_list, 
-                sequence_index,
-                (a_generator.__name__, repr(a_gen_args)),
-                (b_generator.__name__, repr(b_gen_args)),
-                black_list, run_postproc)
+            # if we are debugging, don't process this job in a separate program
+            # (keeps it synchronous and all in the same process for debugging)
+            jobs.store(*args)
         else:
-            enqueue(db, precision, algo_name, arg_list,
-                    sequence_index,
-                    (a_generator.__name__, repr(a_gen_args)),
-                    (b_generator.__name__, repr(b_gen_args)),
-                    black_list, run_postproc)
+            # adding .delay after the function name queues it up to be 
+            # executed by a Celery worker in another process / machine 
+            enqueue(*args)
+            
+            jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
+
+        if not silent and count % 10 == 0:
+            index += 1
+            utils.printProgressBar(count, total_work, prefix=f'{spinner[index % len(spinner)]} Queueing {what} {count}/{total_work}')
+
+        count += 1        
                
 def enqueue(*argv):
     global work_queue_pool

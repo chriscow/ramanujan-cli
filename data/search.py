@@ -5,7 +5,7 @@ from datetime import datetime
 import logging
 import mpmath
 from mpmath import mpf, mpc
-from redis import Redis
+from redis import Redis, ConnectionPool
 from rq import Queue
 from rediscluster import RedisCluster
 
@@ -18,11 +18,7 @@ import utils
 log = logging.getLogger(__name__)
 
 from data.wrapper import HashtableWrapper
-
-def chunks(l, n):
-    """Yield successive n-sized chunks from l."""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+work_queue_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=os.getenv('WORK_QUEUE_DB'))
 
 
 def run(max_precision=50, sync=False, silent=False):
@@ -33,7 +29,7 @@ def run(max_precision=50, sync=False, silent=False):
     '''
     log.info(f'[search.run] max_precision:{max_precision} sync:{sync} silent:{silent} at {time.time()}')
 
-    local_redis = Redis(db=os.getenv('WORK_QUEUE_DB'))
+    local_redis = Redis(connection_pool=work_queue_pool, db=os.getenv('WORK_QUEUE_DB'))
     q = Queue(connection=local_redis)
     log.debug(f'Localhost redis work queue is {os.getenv("WORK_QUEUE_DB")}')
 
@@ -44,12 +40,95 @@ def run(max_precision=50, sync=False, silent=False):
     for lhs_keys in lhs_db.scan():
 
         if sync:
-            jobs.queue_search(lhs_keys, sync)
+            queue_search(lhs_keys, sync)
         else:
-            q.enqueue(jobs.queue_search, lhs_keys, sync)
+            q.enqueue(queue_search, lhs_keys, sync)
 
     jobs.wait(0, 0, silent)
+
+    match_db = HashtableWrapper('match')
+    print(f'Found {match_db.size()} matches')
+
     print()
+
+def queue_search(lhs_keys, sync):
+    global work_queue_pool
+
+    local_redis = Redis(connection_pool=work_queue_pool, db=os.getenv('WORK_QUEUE_DB'))
+    q = Queue(connection=local_redis)
+
+    rhs_db = HashtableWrapper('rhs')
+
+    print(f'lhs_key count:{len(lhs_keys)}')
+
+    # key_matches() enumerates all the keys in the hashtable from the left hand side,
+    # and finds a match on the right hand side.  
+    for lhs_key in lhs_keys:
+
+        _, key_value, _ = str(lhs_key).split(':')
+
+
+        for rhs_keys in rhs_db.scan(key_value):
+            
+            if rhs_keys:
+                if sync:
+                    find_matches(lhs_key, rhs_keys)
+                else:
+                    q.enqueue(find_matches, lhs_key, rhs_keys)
+            
+
+def find_matches(lhs_key, rhs_keys):
+    
+    lhs_db = HashtableWrapper('lhs')
+    rhs_db = HashtableWrapper('rhs')
+    match_db = HashtableWrapper('match')
+
+    lhs_val = lhs_db.redis.get(lhs_key)
+    _, key_value, _ = str(lhs_key).split(':')
+
+    print(f'lhs_key {lhs_key} rhs_key count:{len(rhs_keys)}')
+
+    for rhs_key in rhs_keys:  
+        
+        rhs_val = rhs_db.redis.get(rhs_key)
+
+        if rhs_val is None:
+            continue
+
+        # Expand the algorithm arguments etc from the data in the hashtable
+        # Underscore just means we are ignoring that entry
+        # The format of these values is:
+        #   - algorithm type_id from algorithms.py that generated the result
+        #   - postproc type_id of the function from postprocs.py that altered the result
+        #   - final calculated value
+        #   - algorithm arguments
+        #   - a_generator method and args
+        #   - b generator method and args
+
+        # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
+        _,_,lhs_postproc_id,lhs_result,_,_,_ = eval(lhs_val)
+        _,_,rhs_postproc_id,rhs_result,_,_,_ = eval(rhs_val)
+
+        # Check the absolute value of both sides and make sure they are the same
+        # if mpmath.fabs(lhs_result)[:8] == mpmath.fabs(rhs_result):
+        #     matches.add((lhs_val, rhs_val))
+
+        # matching only the fractional part
+        lhs_result = mpmath.frac(mpmath.fabs(lhs_result))
+        rhs_result = mpmath.frac(mpmath.fabs(rhs_result))
+
+        if str(lhs_result)[:mpmath.mp.dps - 2] == str(rhs_result)[:mpmath.mp.dps - 2]:
+            # if both sides are just using the identity() post proc (noop)
+            # then add it to the matches.
+            if lhs_postproc_id == 0 and rhs_postproc_id == 0:
+                match_db.set(key_value, (eval(lhs_val), eval(rhs_val)) )
+            elif lhs_postproc_id != rhs_postproc_id:
+                # if both sides are not using the same postproc, also add it
+                match_db.set(key_value, (eval(lhs_val), eval(rhs_val)) )
+        else:
+            pass
+            # They don't match when we have only added the fractional part
+            # '0.33333333333'  != '3.33333333333'
 
 
 # def test():
@@ -117,7 +196,7 @@ def run(max_precision=50, sync=False, silent=False):
 
     #         if not silent:
     #             count += 1
-    #             utils.printProgressBar(count, len(matches), prefix=f' Queueing {mpmath.mp.dps} places', suffix='     ')
+    #             utils.printProgressBar(count, len(matches), prefix=f' Queueing {mpmath.mp.dps} places')
 
 
     #     # Wait for the set of jobs

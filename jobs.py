@@ -17,7 +17,16 @@ import config
 import mpmath
 from mpmath import mpf, mpc
 
+# Set up a logger
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
+formatter = utils.CustomConsoleFormatter()
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+log.addHandler(console_handler)
+
 
 work_queue_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=os.getenv('WORK_QUEUE_DB'))
 redis_pool = ConnectionPool(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
@@ -27,7 +36,7 @@ def ping(timestamp):
     return timestamp
 
 
-def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, black_list, run_postproc):
+def store(side, accuracy, algo_name, args_list, a_gen, b_gen, black_list, run_postproc):
     '''
     This method is queued up by the master process to be executed by a Celery worker.
 
@@ -42,7 +51,6 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
     sequence_index - the STARTING index of the generated sequence. If you want to reproduce the sequence
         you have to generate all sequences, do an itertools.product() then index that list using sequence_index
     '''
-
     db = HashtableWrapper(side)
 
     # Get the actual function from the name passed in
@@ -69,6 +77,8 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
                 continue
 
         value = algo(*args)
+        log.debug(f'{algo_name} == {value}')
+        
         if value in black_list:
             continue
 
@@ -101,7 +111,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
                 continue
 
 
-            algo_data = (side, algo.type_id, fn.type_id, result, args, sequence_index, a_gen, b_gen)
+            algo_data = (side, algo.type_id, fn.type_id, result, args, a_gen, b_gen)
 
 
             # verify = reverse_solve(algo_data)
@@ -130,9 +140,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
             # bail out early if we are not running the post-proc functions
             if not run_postproc:
                 break
-        
-        sequence_index += 1
-            
+                    
 
         # utils.debug(log, f'Algo+Post for {algo.__name__} {a_coeff} {b_coeff} done at {datetime.now() - start}')
     
@@ -143,7 +151,7 @@ def store(side, accuracy, algo_name, args_list, sequence_index, a_gen, b_gen, bl
     elapsed = (datetime.now() - start).total_seconds()
 
     if len(redis_times):
-        utils.info(log, f'elapsed:{elapsed} algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} len(redis): {len(redis_times)} avg(redis): {sum(redis_times) / len(redis_times)} commit: {commit_time}')
+        log.info(f'elapsed:{elapsed} algo: {sum(algo_times)} post: {sum(post_times)} redis: {sum(redis_times)} avg(redis): {sum(redis_times) / len(redis_times)} commit: {commit_time}')
     # return test
 
 
@@ -184,7 +192,7 @@ def wait(min, max, silent):
         time.sleep(1)
 
         if 0 == worker_count:
-            utils.warn(log, 'There are no workers')
+            log.warning('There are no workers')
 
         if not silent:
             utils.printProgressBar(total_work - default_queue.count + min, total_work - min, prefix=f'Waiting {total_work - default_queue.count + min} / {total_work - min}') 
@@ -215,78 +223,7 @@ def wait(min, max, silent):
             if idle_workers < len(workers):
                 time.sleep(1)        
 
-def queue_search(lhs_keys, sync):
 
-    local_redis = Redis(db=os.getenv('WORK_QUEUE_DB'))
-    q = Queue(connection=local_redis)
-
-    rhs_db = HashtableWrapper('rhs')
-
-    # key_matches() enumerates all the keys in the hashtable from the left hand side,
-    # and finds a match on the right hand side.  
-    for lhs_key in lhs_keys:
-
-        _, key_value, _ = str(lhs_key).split(':')
-
-        for rhs_keys in rhs_db.scan(key_value):
-            
-            if rhs_keys:
-                if sync:
-                    find_matches(lhs_key, rhs_keys)
-                else:
-                    q.enqueue(find_matches, lhs_key, rhs_keys)
-            
-
-def find_matches(lhs_key, rhs_keys):
-    
-    lhs_db = HashtableWrapper('lhs')
-    rhs_db = HashtableWrapper('rhs')
-    match_db = HashtableWrapper('match')
-
-    lhs_val = lhs_db.redis.get(lhs_key)
-    _, key_value, _ = str(lhs_key).split(':')
-
-    for rhs_key in rhs_keys:  
-        
-        rhs_val = rhs_db.redis.get(rhs_key)
-
-        if rhs_val is None:
-            continue
-
-        # Expand the algorithm arguments etc from the data in the hashtable
-        # Underscore just means we are ignoring that entry
-        # The format of these values is:
-        #   - algorithm type_id from algorithms.py that generated the result
-        #   - postproc type_id of the function from postprocs.py that altered the result
-        #   - final calculated value
-        #   - algorithm arguments
-        #   - a_generator method and args
-        #   - b generator method and args
-
-        # algo.type_id, fn.type_id, result, repr(args), a_gen, b_gen
-        _,_,lhs_postproc_id,lhs_result,_,_,_,_ = eval(lhs_val)
-        _,_,rhs_postproc_id,rhs_result,_,_,_,_ = eval(rhs_val)
-
-        # Check the absolute value of both sides and make sure they are the same
-        # if mpmath.fabs(lhs_result)[:8] == mpmath.fabs(rhs_result):
-        #     matches.add((lhs_val, rhs_val))
-
-        # matching only the fractional part
-        lhs_result = mpmath.frac(mpmath.fabs(lhs_result))
-        rhs_result = mpmath.frac(mpmath.fabs(rhs_result))
-
-        if str(lhs_result)[:mpmath.mp.dps - 2] == str(rhs_result)[:mpmath.mp.dps - 2]:
-            # if both sides are just using the identity() post proc (noop)
-            # then add it to the matches.
-            if lhs_postproc_id == 0 and rhs_postproc_id == 0:
-                match_db.set(key_value, (lhs_val, rhs_val) )
-            elif lhs_postproc_id != rhs_postproc_id:
-                # if both sides are not using the same postproc, also add it
-                match_db.set(key_value, (lhs_val, rhs_val) )
-        else:
-            pass
-            # They don't match when we have only added the fractional part
-            # '0.33333333333'  != '3.33333333333'
     
 def reverse_solve(side, algo_data):
     '''
@@ -375,4 +312,4 @@ if __name__ == '__main__':
 
     store(db, precision, 'rational_function', [(0,1,0)], [(1,0,0)], mpmath.e, black_list, False)
 
-    utils.info(log, 'jobs.py passed')
+    log.info('jobs.py passed')
