@@ -116,7 +116,7 @@ def run(side, db, use_constants, sync=False, silent=False):
                             a_hash, 
                             b_hash, 
                             black_list, run_postproc, 
-                            sync=sync, silent=silent, what=f'const:{utils.get_const_str(const)}')
+                            sync=sync, silent=silent, what=f'const:{utils.get_const_str(const)} ({count}/{total_work})')
                                         
             else:
                 a_hash = seq_cache.generate(a_gen, a_args)
@@ -126,7 +126,7 @@ def run(side, db, use_constants, sync=False, silent=False):
                     a_hash, 
                     b_hash, 
                     black_list, run_postproc, 
-                    sync=sync, silent=silent, what=algo.__name__)
+                    sync=sync, silent=silent, what=f'{algo.__name__} ({count}/{total_work})')
         
             
 
