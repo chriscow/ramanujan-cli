@@ -160,7 +160,7 @@ rhs = {
 
     # Take the left-side algorithm result and run it through all the functions in postproc.py
     # and save those values too.  Takes much longer though
-    "run_postproc": True,
+    "run_postproc": False,
 
     # If the algorithm (or postproc functions) results in any of these values, 
     # don't store it

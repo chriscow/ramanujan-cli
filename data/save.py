@@ -79,8 +79,19 @@ def run():
                 if lhs_post == 0: #identity
                     post = ''
 
+                s = str(lhs_result)
                 if lhs_result in utils.const_map:
-                    lhs_result = f'{utils.const_map[lhs_result]} = {lhs_result}'
+                    s = f'{utils.const_map[lhs_result]} = {lhs_result}'
+
+                l = int(mpf(lhs_result))
+                r = int(mpf(rhs_result))
+                if r - l != 0:
+                    if r - l < 0:
+                        s += f' - {mpmath.fabs(r - l)}'
+                    else:
+                        s += f' + {r - l}'
+
+                lhs_result = s
                 
                 if denominator != 1:
                     lhs_output = f'LHS: {post} {lhs_result}  ==>  {numerator} / {denominator}'
