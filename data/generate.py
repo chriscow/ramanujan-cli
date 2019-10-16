@@ -62,6 +62,8 @@ def run(side, db, use_constants, sync=False, silent=False):
 
     # Each job will contain this many a/b coefficient pairs
     # If we aren't running post proc functions, x10
+
+    total_work = len(list(itertools.product(a_sequences, b_sequences))) * len(side["algorithms"])
     
     if use_constants:
         batch_size = 5 if run_postproc else 500
@@ -71,10 +73,16 @@ def run(side, db, use_constants, sync=False, silent=False):
     # If we are doing the constants, another 100x
     # batch_size = batch_size * 10 if use_constants else batch_size
     seq_cache = cache.SequenceCache(redis_pool)
-        
+    
+    count = 0
+
     for algo in side["algorithms"]:
+        count += 1
         for a_sequence, b_sequence in itertools.product(a_sequences, b_sequences):
-            
+            count += 1
+            if not silent:
+                utils.printProgressBar(count, total_work, prefix=f'Generating {count}/{total_work}')
+
             a_gen  = a_sequence["generator"]
             a_args = a_sequence["arguments"] 
             b_gen  = b_sequence["generator"]
@@ -119,6 +127,8 @@ def run(side, db, use_constants, sync=False, silent=False):
                     b_hash, 
                     black_list, run_postproc, 
                     sync=sync, silent=silent, what=algo.__name__)
+        
+            
 
     # wait for remaining work
     jobs.wait(0, 0, silent)
@@ -165,8 +175,6 @@ def _queue_work(db, precision, batch_size, algo_name, a_seq_hash, b_seq_hash, bl
     #     executor.map(jobs.store, all_args, chunksize=batch_size)
 
 
-
-
     for pairs in utils.chunks(sequence_pairs, batch_size):
 
         args = (db, precision, algo_name, pairs, a_seq_hash, b_seq_hash, black_list, run_postproc)
@@ -188,6 +196,12 @@ def _queue_work(db, precision, batch_size, algo_name, a_seq_hash, b_seq_hash, bl
             utils.printProgressBar(count, total_work, prefix=f'{spinner[index % len(spinner)]} Queueing {what} {count}/{total_work}')
 
         count += len(pairs)      
+
+    # draw the final part
+    if not silent and count % 10 == 0:
+        index += 1
+        utils.printProgressBar(count, total_work, prefix=f'{spinner[index % len(spinner)]} Queueing {what} {count}/{total_work}')
+
                
 def enqueue(*argv):
     global work_queue_pool
