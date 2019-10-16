@@ -37,12 +37,18 @@ def run(max_precision=50, sync=False, silent=False):
     lhs_db = HashtableWrapper('lhs')
     rhs_db = HashtableWrapper('rhs')
 
+    count = 0
+    dbsize = lhs_db.size()
+
     for lhs_keys in lhs_db.scan():
 
         if sync:
             queue_search(lhs_keys, sync)
         else:
             q.enqueue(queue_search, lhs_keys, sync)
+            
+        if not silent:
+            utils.printProgressBar(count, dbsize, f'Searching {count}/{dbsize}')
 
     jobs.wait(0, 0, silent)
 
