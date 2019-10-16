@@ -148,7 +148,7 @@ def _queue_work(db, precision, batch_size, algo_name, a_seq_hash, b_seq_hash, bl
     sequence_pairs = list(itertools.product(a_seq, b_seq))
 
     # progress bar
-    total_work = len(sequence_pairs)
+    total_work = len(sequence_pairs) 
     count = 0
     index = 0
     spinner = '|/-\\'
@@ -187,7 +187,7 @@ def _queue_work(db, precision, batch_size, algo_name, a_seq_hash, b_seq_hash, bl
             index += 1
             utils.printProgressBar(count, total_work, prefix=f'{spinner[index % len(spinner)]} Queueing {what} {count}/{total_work}')
 
-        count += 1        
+        count += len(pairs)      
                
 def enqueue(*argv):
     global work_queue_pool
