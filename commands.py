@@ -167,8 +167,7 @@ def verify(side, value, what):
     db = HashtableWrapper(side)
     value = mpmath.mpf(value)
     key = db.manipulate_key(mpmath.frac(value))
-    redis = Redis()
-    keys = redis.keys(key)
+    keys = db.redis.keys(key)
     assert len(keys), f'Expected to find {what} {key}'
 
 @click.command()
