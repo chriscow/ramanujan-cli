@@ -23,15 +23,15 @@ verify_finds = [ 'mpmath.sqrt(3)', 'mpmath.phi', 'mpmath.e']
 constants = [ 'mpmath.sqrt(3)', 'mpmath.sqrt(5)', 'mpmath.sqrt(7)',
 'mpmath.phi', 
 'mpmath.e',
-'mpmath.euler', 
+'mpmath.euler', # 0.577216
 'mpmath.degree', 
 
 # https://en.wikipedia.org/wiki/Catalan%27s_constant
-'mpmath.catalan',
+'mpmath.catalan', # 0.915966
 
 # Apery's constant happens to be ζ(3) 
 # https://en.wikipedia.org/wiki/Ap%C3%A9ry%27s_constant
-'mpmath.apery', 
+'mpmath.apery', # 1.20206
 
 # https://en.wikipedia.org/wiki/Khinchin%27s_constant
 # In number theory, Aleksandr Yakovlevich Khinchin proved that for almost all 
@@ -51,22 +51,22 @@ constants = [ 'mpmath.sqrt(3)', 'mpmath.sqrt(5)', 'mpmath.sqrt(7)',
 #
 # lim(a1,a2, ... an)^(1/n) = mpmath.khinchin
 # n -> ∞
-'mpmath.khinchin', 
+'mpmath.khinchin',  # 2.68545
 
 # https://en.wikipedia.org/wiki/Glaisher%E2%80%93Kinkelin_constant
 # Glaisher–Kinkelin constant is an important constant which appears in many expressions for the 
 # derivative of the Riemann zeta function. It has a numerical value of 
 # approximately 1.2824271291.
-'mpmath.glaisher', 
+'mpmath.glaisher',  #  1.28243
 
 # https://en.wikipedia.org/wiki/Meissel%E2%80%93Mertens_constant
 # prime reciprocal constant
 # defined as the limiting difference between the harmonic series summed only 
 # over the primes and the natural logarithm of the natural logarithm
-'mpmath.mertens', 
+'mpmath.mertens',  # 0.261497
 
 # https://en.wikipedia.org/wiki/Twin_prime#First_Hardy%E2%80%93Littlewood_conjecture
-'mpmath.twinprime',
+'mpmath.twinprime', # 0.660162
 
 # First Riemann zeta zeros
 '14.134725141734693790457251983562470270784257115699243175685567460149963429809256764949010393171561012779202971548797436766142691469882254582505363239447137780413381237205970549621955865860200555566725836010773700205410982661507542780517442591306254481978651072304938725629738321577420395215725674809332140034990468034346267314420920377385487141378317356396995365428113079680531491688529067820822980492643386667346233200787587617920056048680543568014444246510655975686659032286865105448594443206240727270320942745222130487487209241238514183514605427901524478338354254533440044879368067616973008190007313938549837362150130451672696838920039176285123212854220523969133425832275335164060169763527563758969537674920336127209259991730427075683087951184453489180086300826483125169112710682910523759617977431815170713545316775495153828937849036474709727019948485532209253574357909226125247736595518016975233461213977316005354125926747455725877801472609830808978600712532087509395997966660675378381214891908864977277554420656532052405',

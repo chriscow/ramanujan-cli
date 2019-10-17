@@ -80,8 +80,9 @@ def run():
                     post = ''
 
                 s = str(lhs_result)
-                if lhs_result in utils.const_map:
-                    s = f'{utils.const_map[lhs_result]} = {lhs_result}'
+                
+                if const in utils.const_map:
+                    const = f'{utils.const_map[const]} = {const}'
 
                 # l = int(mpf(lhs_result))
                 # r = int(mpf(rhs_result))
