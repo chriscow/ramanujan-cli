@@ -148,6 +148,7 @@ class HashtableWrapper():
             for result in self.scan_cluster(match, count):
                 yield result
         else:
+            print(f'Scanning {self.side} for keys:{match} count:{count}')
             cursor = '0'
             while cursor != 0:
                 cursor, data = self.redis.scan(cursor=cursor, match=match, count=count)

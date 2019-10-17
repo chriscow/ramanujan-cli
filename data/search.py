@@ -49,7 +49,7 @@ def run(max_precision=50, sync=False, silent=False):
         else:
             q.enqueue(queue_search, lhs_keys, sync, result_ttl=0)
         
-        count += 1
+        count += len(lhs_keys)
         if not silent:
             utils.printProgressBar(count, dbsize, f'Searching {count}/{dbsize}')
 
