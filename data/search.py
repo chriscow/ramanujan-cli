@@ -29,6 +29,8 @@ def run(max_precision=50, sync=False, silent=False):
     '''
     log.info(f'[search.run] max_precision:{max_precision} sync:{sync} silent:{silent} at {time.time()}')
 
+    global work_queue_pool
+    
     local_redis = Redis(connection_pool=work_queue_pool, db=os.getenv('WORK_QUEUE_DB'))
     q = Queue(connection=local_redis)
     log.debug(f'Localhost redis work queue is {os.getenv("WORK_QUEUE_DB")}')
