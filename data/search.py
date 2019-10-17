@@ -42,12 +42,12 @@ def run(max_precision=50, sync=False, silent=False):
     count = 0
     dbsize = lhs_db.size()
 
-    for lhs_keys in lhs_db.scan():
+    for lhs_keys in lhs_db.scan(count=10):
 
         if sync:
             queue_search(lhs_keys, sync)
         else:
-            q.enqueue(queue_search, lhs_keys, sync)
+            q.enqueue(queue_search, lhs_keys, sync, result_ttl=0)
         
         count += 1
         if not silent:
@@ -83,7 +83,7 @@ def queue_search(lhs_keys, sync):
                 if sync:
                     find_matches(lhs_key, rhs_keys)
                 else:
-                    q.enqueue(find_matches, lhs_key, rhs_keys)
+                    q.enqueue(find_matches, lhs_key, rhs_keys, result_ttl=0)
             
 
 def find_matches(lhs_key, rhs_keys):

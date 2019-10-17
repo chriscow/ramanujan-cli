@@ -168,7 +168,7 @@ def verify(side, value, what):
     value = mpmath.mpf(value)
     key = db.manipulate_key(mpmath.frac(value))
     keys = db.redis.keys(key)
-    assert len(keys), f'Expected to find {what} {key}'
+    assert len(keys), f'Expected to find {what} {key} keys:{keys} {db.redis.connection} clustered:{db.clustered}'
 
 @click.command()
 def save():
