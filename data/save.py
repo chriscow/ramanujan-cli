@@ -83,13 +83,13 @@ def run():
                 if lhs_result in utils.const_map:
                     s = f'{utils.const_map[lhs_result]} = {lhs_result}'
 
-                l = int(mpf(lhs_result))
-                r = int(mpf(rhs_result))
-                if r - l != 0:
-                    if r - l < 0:
-                        s += f' - {mpmath.fabs(r - l)}'
-                    else:
-                        s += f' + {r - l}'
+                # l = int(mpf(lhs_result))
+                # r = int(mpf(rhs_result))
+                # if r - l != 0:
+                #     if r - l < 0:
+                #         s += f' - {mpmath.fabs(r - l)}'
+                #     else:
+                #         s += f' + {r - l}'
 
                 lhs_result = s
                 
