@@ -53,6 +53,8 @@ def run(max_precision=50, sync=False, silent=False):
         if not silent:
             utils.printProgressBar(count, dbsize, f'Searching {count}/{dbsize}')
 
+        jobs.wait(config.min_workqueue_size, config.max_workqueue_size, silent)
+
     jobs.wait(0, 0, silent)
 
     match_db = HashtableWrapper('match')
