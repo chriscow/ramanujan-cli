@@ -94,9 +94,9 @@ def run():
                 lhs_result = s
                 
                 if denominator != 1:
-                    lhs_output = f'LHS: {post} {lhs_result}  ==>  {numerator} / {denominator}'
+                    lhs_output = f'LHS [{const}]: {post} {lhs_result}  ==>  {numerator} / {denominator}'
                 else:
-                    lhs_output = f'LHS: {post} {lhs_result}'
+                    lhs_output = f'LHS [{const}]: {post} {lhs_result} ==> {numerator}'
             else:
                 # Unpack to get the constant
                 # sequence generator function name and args
