@@ -50,7 +50,6 @@ LHS_KEY=lhs
 RHS_KEY=rhs
             ''')
 
-    dotenv.load_dotenv()
     assert(os.getenv('RHS_KEY') is not None)
 
 
