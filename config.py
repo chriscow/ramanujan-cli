@@ -19,12 +19,7 @@ job_result_ttl=60 * 30 # longest amount of time before you check on a job's (com
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
-constants = ['mpmath.apery', 'mpmath.khinchin', 'mpmath.glaisher', 
-'mpmath.mertens', 
-
-# https://en.wikipedia.org/wiki/Twin_prime#First_Hardy%E2%80%93Littlewood_conjecture
-'mpmath.twinprime',
-
+constants = [
 # First Riemann zeta zeros
 '14.134725141734693790457251983562470270784257115699243175685567460149',
 '21.022039638771554992628479593896902777334340524902781754629520403587',
@@ -36,7 +31,7 @@ constants = ['mpmath.apery', 'mpmath.khinchin', 'mpmath.glaisher',
 '43.327073280914999519496122165406805782645668371836871446878893685521',
 '48.005150881167159727942472749427516041686844001144425117775312519814',
 '49.773832477672302181916784678563724057723178299676662100781955750433',
-
+'52.970321477714460644147296608880990063825017888821224779900748140317'
 ]
 
 lhs = {
