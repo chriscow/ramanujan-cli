@@ -215,8 +215,8 @@ def enqueue(*argv):
             job = q.enqueue(jobs.store, result_ttl=0, *argv)
             return job
         except Exception as err:
-            utils.warn(log, err)
-            utils.warn(log, f'Retrying enqueue in {retry_time} seconds...')
+            logging.warning(log, err)
+            logging.warning(log, f'Retrying enqueue in {retry_time} seconds...')
             time.sleep(retry_time)
             retry_time *= 5
 
