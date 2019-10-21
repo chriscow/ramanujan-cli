@@ -16,22 +16,22 @@ min_workqueue_size = 10
 max_workqueue_size = 100 # maximum jobs in flight per worker before we wait for them to finish
 job_result_ttl=60 * 30 # longest amount of time before you check on a job's (complete) status
 
-verify_finds = [ 'mpmath.sqrt(3)', 'mpmath.phi', 'mpmath.e']
+verify_finds = ['mpmath.phi', 'mpmath.e']
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
-constants = [ 'mpmath.sqrt(3)', 'mpmath.sqrt(5)', 'mpmath.sqrt(7)',
+constants = [
 'mpmath.phi', 
 'mpmath.e',
-'mpmath.euler', # 0.577216
+'mpmath.euler', 
 'mpmath.degree', 
 
 # https://en.wikipedia.org/wiki/Catalan%27s_constant
-'mpmath.catalan', # 0.915966
+'mpmath.catalan',
 
 # Apery's constant happens to be ζ(3) 
 # https://en.wikipedia.org/wiki/Ap%C3%A9ry%27s_constant
-'mpmath.apery', # 1.20206
+'mpmath.apery', 
 
 # https://en.wikipedia.org/wiki/Khinchin%27s_constant
 # In number theory, Aleksandr Yakovlevich Khinchin proved that for almost all 
@@ -51,22 +51,22 @@ constants = [ 'mpmath.sqrt(3)', 'mpmath.sqrt(5)', 'mpmath.sqrt(7)',
 #
 # lim(a1,a2, ... an)^(1/n) = mpmath.khinchin
 # n -> ∞
-'mpmath.khinchin',  # 2.68545
+'mpmath.khinchin', 
 
 # https://en.wikipedia.org/wiki/Glaisher%E2%80%93Kinkelin_constant
 # Glaisher–Kinkelin constant is an important constant which appears in many expressions for the 
 # derivative of the Riemann zeta function. It has a numerical value of 
 # approximately 1.2824271291.
-'mpmath.glaisher',  #  1.28243
+'mpmath.glaisher', 
 
 # https://en.wikipedia.org/wiki/Meissel%E2%80%93Mertens_constant
 # prime reciprocal constant
 # defined as the limiting difference between the harmonic series summed only 
 # over the primes and the natural logarithm of the natural logarithm
-'mpmath.mertens',  # 0.261497
+'mpmath.mertens', 
 
 # https://en.wikipedia.org/wiki/Twin_prime#First_Hardy%E2%80%93Littlewood_conjecture
-'mpmath.twinprime', # 0.660162
+'mpmath.twinprime',
 
 # First Riemann zeta zeros
 '14.134725141734693790457251983562470270784257115699243175685567460149963429809256764949010393171561012779202971548797436766142691469882254582505363239447137780413381237205970549621955865860200555566725836010773700205410982661507542780517442591306254481978651072304938725629738321577420395215725674809332140034990468034346267314420920377385487141378317356396995365428113079680531491688529067820822980492643386667346233200787587617920056048680543568014444246510655975686659032286865105448594443206240727270320942745222130487487209241238514183514605427901524478338354254533440044879368067616973008190007313938549837362150130451672696838920039176285123212854220523969133425832275335164060169763527563758969537674920336127209259991730427075683087951184453489180086300826483125169112710682910523759617977431815170713545316775495153828937849036474709727019948485532209253574357909226125247736595518016975233461213977316005354125926747455725877801472609830808978600712532087509395997966660675378381214891908864977277554420656532052405',
@@ -89,69 +89,18 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [-4,-1], [-4,4] ]], None ]
-        },
-        {
-        "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [1,4], [-4,4] ]], None ]
+        "arguments": [ [[ [0,1], [1,5], [0,7] ]], None ]
         }
     ],
 
     "b_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
+        "arguments": [ [[ [1,2], [0,1], [0,1] ]], None ]
         }
     ]
 }
 
-#
-# The ranges below define the ranges of the coefficients in reverse order.
-#
-#                    C   +  Bx   + Ax^2
-#   [[ [C_start, C_end], [B_start, B_end], [A_start, A_end] ]]
-#
-# where then END values are non-inclusive.
-#
-
-# This range simply searches for the constant
-# lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
-# lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
-
-#                     
-# Finds  e / (e - 2)  3.784422382354666325454672914929687976837158203125
-# lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]       # numerator
-# lhs.b_range   = [[ [-2,-1], [1,2], [0,1] ]]     # denominator
-
-# Finds 1 / (e - 2)
-# lhs.a_range   = [[ [1,2], [0,1], [0,1] ]]
-# lhs.b_range   = [[ [-2,-1], [1,2], [0,1] ]]
-
-
-# lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-# lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-
-# Slow, especially with postproc fn()'s called
-# lhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
-# lhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
-
-# don't do this one yet ...  
-#       ____
-#     ,'   Y`.
-#    /        \
-#    \ ()  () /
-#     `. /\ ,'
-# 8====| "" |====8
-#      `LLLU'
-# lhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
-# lhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
-
-# lhs.a_generator = Config()
-# lhs.b_generator = Config()
-# lhs.a_generator.algorithm = algorithms.polynomial_sequence
-# lhs.a_generator.arguments = (lhs.a_range, constants)
-# lhs.b_generator.algorithm = algorithms.polynomial_sequence
-# lhs.b_generator.arguments = (lhs.b_range, constants)
 
 # # # # # #
 #
@@ -177,7 +126,7 @@ rhs = {
         },
         {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
+            "arguments": ([[ [-5,5], [-5,5], [-5,5] ]], range(0, 201))
         }
     ],
 
@@ -188,72 +137,10 @@ rhs = {
         },
         {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
+            "arguments": ([[ [-5,5], [-5,5], [-5,5] ]], range(0, 201))
         }
     ]
 }
 
 
 
-#
-#                    C   +  Bx   + Ax^2
-#
-
-
-# Finds sqrt(3)
-    # "a_sequence": {
-    #     "generator": algorithms.integer_sequence,
-    #     "arguments": ( [1,2], 2, 50, [1], 1 )
-    # },
-
-    # "b_sequence": {
-    #     "generator": algorithms.polynomial_sequence,
-    #     "arguments": ([[ [1,2], [0,1], [0,1] ]], range(0, 101))
-    # }
-
-# Generic -2 >> 2 range except little larger range for constant
-# in the a_range so that it finds e also.
-# rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]]
-# rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
-
-# nested radical finds 3
-# rhs.a_range = [[ [1,2], [0,1], [0,1] ]]
-# rhs.b_range = [[ [2,3], [1,2], [0,1] ]]
-
-
-# Slow, especially with postproc fn()'s called
-# rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
-# rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
-
-# Finds appx e / (e - 2)  = 3.784422382354666325454672914929687976837158203125
-#                                           | <-- accurate to this point
-# continued fraction finds= 3.784422382354665628753105756959633056747956770630574247182649134166559140923221
-# rhs.a_range = [[ [4,5], [1,2], [0,1] ]]
-# rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
-
-# Finds 1 / (e - 2)
-# rhs.a_range = [[ [4,5], [1,2], [0,1] ]]
-# rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
-
-# continued fraction for e
-# rhs.a_range = [[ [3,4], [1,2], [0,1] ]] 
-# rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
-
-# finds phi for BOTH continued fraction and nested radical
-# rhs.a_range = [[ [1,2], [0,1], [0,1] ]] 
-# rhs.b_range = [[ [1,2], [0,1], [0,1] ]]
-
-# just enough range to generate BOTH phi and e
-# rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
-# rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
-
-# don't do this one yet ...  
-#       ____
-#     ,'   Y`.
-#    /        \
-#    \ ()  () /
-#     `. /\ ,'
-# 8====| "" |====8
-#      `LLLU'
-# rhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
-# rhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]

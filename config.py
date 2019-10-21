@@ -16,11 +16,11 @@ min_workqueue_size = 10
 max_workqueue_size = 100 # maximum jobs in flight per worker before we wait for them to finish
 job_result_ttl=60 * 30 # longest amount of time before you check on a job's (complete) status
 
-verify_finds = [ 'mpmath.phi', 'mpmath.e']
+verify_finds = ['mpmath.phi', 'mpmath.e']
 
 # Python list of interesting constants.
 # Be sure each constant in the list is wrapped in quotes to preserve precision
-constants = [ 'mpmath.sqrt(3)', 'mpmath.sqrt(5)', 'mpmath.sqrt(7)',
+constants = [
 'mpmath.phi', 
 'mpmath.e',
 'mpmath.euler', 
@@ -89,69 +89,18 @@ lhs = {
     "a_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [-4,-1], [-4,4] ]], None ]
-        },
-        {
-        "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [1,4], [-4,4] ]], None ]
+        "arguments": [ [[ [0,1], [1,5], [0,7] ]], None ]
         }
     ],
 
     "b_sequences": [
         {
         "generator": algorithms.polynomial_sequence,
-        "arguments": [ [[ [-4,4], [-4,4], [-4,4] ]], None ]
+        "arguments": [ [[ [1,2], [0,1], [0,1] ]], None ]
         }
     ]
 }
 
-#
-# The ranges below define the ranges of the coefficients in reverse order.
-#
-#                    C   +  Bx   + Ax^2
-#   [[ [C_start, C_end], [B_start, B_end], [A_start, A_end] ]]
-#
-# where then END values are non-inclusive.
-#
-
-# This range simply searches for the constant
-# lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]
-# lhs.b_range   = [[ [1,2], [0,1], [0,1] ]]
-
-#                     
-# Finds  e / (e - 2)  3.784422382354666325454672914929687976837158203125
-# lhs.a_range   = [[ [0,1], [1,2], [0,1] ]]       # numerator
-# lhs.b_range   = [[ [-2,-1], [1,2], [0,1] ]]     # denominator
-
-# Finds 1 / (e - 2)
-# lhs.a_range   = [[ [1,2], [0,1], [0,1] ]]
-# lhs.b_range   = [[ [-2,-1], [1,2], [0,1] ]]
-
-
-# lhs.a_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-# lhs.b_range   = [[ [-2,2], [-2,2], [-2,2] ]]
-
-# Slow, especially with postproc fn()'s called
-# lhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
-# lhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
-
-# don't do this one yet ...  
-#       ____
-#     ,'   Y`.
-#    /        \
-#    \ ()  () /
-#     `. /\ ,'
-# 8====| "" |====8
-#      `LLLU'
-# lhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
-# lhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
-
-# lhs.a_generator = Config()
-# lhs.b_generator = Config()
-# lhs.a_generator.algorithm = algorithms.polynomial_sequence
-# lhs.a_generator.arguments = (lhs.a_range, constants)
-# lhs.b_generator.algorithm = algorithms.polynomial_sequence
-# lhs.b_generator.arguments = (lhs.b_range, constants)
 
 # # # # # #
 #
@@ -177,7 +126,7 @@ rhs = {
         },
         {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
+            "arguments": ([[ [-5,5], [-5,5], [-5,5] ]], range(0, 201))
         }
     ],
 
@@ -188,72 +137,10 @@ rhs = {
         },
         {
             "generator": algorithms.polynomial_sequence,
-            "arguments": ([[ [-4,4], [-4,4], [-4,4] ]], range(0, 201))
+            "arguments": ([[ [-5,5], [-5,5], [-5,5] ]], range(0, 201))
         }
     ]
 }
 
 
 
-#
-#                    C   +  Bx   + Ax^2
-#
-
-
-# Finds sqrt(3)
-    # "a_sequence": {
-    #     "generator": algorithms.integer_sequence,
-    #     "arguments": ( [1,2], 2, 50, [1], 1 )
-    # },
-
-    # "b_sequence": {
-    #     "generator": algorithms.polynomial_sequence,
-    #     "arguments": ([[ [1,2], [0,1], [0,1] ]], range(0, 101))
-    # }
-
-# Generic -2 >> 2 range except little larger range for constant
-# in the a_range so that it finds e also.
-# rhs.a_range = [[ [-2,4], [-2,2], [-2,2] ]]
-# rhs.b_range = [[ [-2,2], [-2,2], [-2,2] ]]
-
-# nested radical finds 3
-# rhs.a_range = [[ [1,2], [0,1], [0,1] ]]
-# rhs.b_range = [[ [2,3], [1,2], [0,1] ]]
-
-
-# Slow, especially with postproc fn()'s called
-# rhs.b_range = [[ [-4,4], [-4,4], [-4,4] ]]
-# rhs.a_range = [[ [-4,4], [-4,4], [-4,4] ]]
-
-# Finds appx e / (e - 2)  = 3.784422382354666325454672914929687976837158203125
-#                                           | <-- accurate to this point
-# continued fraction finds= 3.784422382354665628753105756959633056747956770630574247182649134166559140923221
-# rhs.a_range = [[ [4,5], [1,2], [0,1] ]]
-# rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
-
-# Finds 1 / (e - 2)
-# rhs.a_range = [[ [4,5], [1,2], [0,1] ]]
-# rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
-
-# continued fraction for e
-# rhs.a_range = [[ [3,4], [1,2], [0,1] ]] 
-# rhs.b_range = [[ [0,1], [-1,0], [0,1] ]]
-
-# finds phi for BOTH continued fraction and nested radical
-# rhs.a_range = [[ [1,2], [0,1], [0,1] ]] 
-# rhs.b_range = [[ [1,2], [0,1], [0,1] ]]
-
-# just enough range to generate BOTH phi and e
-# rhs.a_range = [[ [1,4], [0,2], [0,1] ]]
-# rhs.b_range = [[ [0,2], [-1,1], [0,1] ]]
-
-# don't do this one yet ...  
-#       ____
-#     ,'   Y`.
-#    /        \
-#    \ ()  () /
-#     `. /\ ,'
-# 8====| "" |====8
-#      `LLLU'
-# rhs.a_range = [[ [-10,10], [-10,10], [-10,10] ]]
-# rhs.b_range = [[ [-10,10], [-10,10], [-10,10] ]]
